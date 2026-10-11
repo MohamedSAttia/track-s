@@ -8,6 +8,7 @@
   const wr = v => { try { localStorage.setItem(LS, JSON.stringify(v)); } catch (e) {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const pick = a => a[Math.floor(Math.random() * a.length)];
+  const EN = () => (window.TFC && window.TFC.EN) ? window.TFC.EN() : false; const L = (ar, en) => EN() ? en : ar;
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const norm = s => String(s || '').toLowerCase().replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
 
@@ -220,12 +221,16 @@
   }
 
   function save(k, pct) { const d = rd(); d.best = d.best || {}; d.best[k] = Math.max(d.best[k] || 0, pct); d.runs = (d.runs || 0) + 1; wr(d); const s = document.getElementById('arScore'); if (s) s.innerHTML = scoreHtml(); try { window.TFC && window.TFC.sync(); } catch (e) {} }
-  const NAMES = { incident: 'محاكي الحوادث', classify: 'سباق التصنيف', viva: 'الممتحن الشفهي', case: 'محلّل الحالة', lines: 'من المسؤول؟', order: 'رتّب الخطوات', match: 'المطابقة', team: 'تحدي المجموعات' };
-  function scoreHtml() { const d = rd(), b = d.best || {}; return Object.keys(NAMES).map(k => `<span class="ar-tag" style="background:${b[k] >= 80 ? '#047857' : b[k] ? '#A97A26' : '#6B7280'}">${NAMES[k]}: ${b[k] != null ? b[k] + '%' : '—'}</span>`).join(' ') + ` <small>${d.runs || 0} محاولة</small>`; }
-  const TABS = [['incident', '🚨 محاكي الحوادث', incident], ['classify', '⚡ سباق التصنيف', classify], ['lines', '⚖️ من المسؤول؟', lines], ['order', '🔢 رتّب الخطوات', order], ['match', '🧩 المطابقة', match], ['viva', '🎤 الممتحن الشفهي', viva], ['case', '🧭 محلّل الحالة', caseLab], ['team', '🏆 تحدي المجموعات', team]];
+  const NAMES_AR = { incident: 'محاكي الحوادث', classify: 'سباق التصنيف', viva: 'الممتحن الشفهي', case: 'محلّل الحالة', lines: 'من المسؤول؟', order: 'رتّب الخطوات', match: 'المطابقة', team: 'تحدي المجموعات' };
+  const NAMES_EN = { incident: 'Incident simulator', classify: 'Classification race', viva: 'Oral examiner', case: 'Case analyst', lines: 'Who is accountable?', order: 'Order the steps', match: 'Term matching', team: 'Team challenge' };
+  const NAMES = new Proxy({}, { get: (_, k) => (EN() ? NAMES_EN : NAMES_AR)[k], ownKeys: () => Object.keys(NAMES_AR), getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }) });
+  function scoreHtml() { const d = rd(), b = d.best || {}; return Object.keys(NAMES).map(k => `<span class="ar-tag" style="background:${b[k] >= 80 ? '#047857' : b[k] ? '#A97A26' : '#6B7280'}">${NAMES[k]}: ${b[k] != null ? b[k] + '%' : '—'}</span>`).join(' ') + ` <small>${d.runs || 0} ${L('محاولة', 'attempts')}</small>`; }
+  const ICON = { incident: '🚨', classify: '⚡', lines: '⚖️', order: '🔢', match: '🧩', viva: '🎤', case: '🧭', team: '🏆' };
+  const FN = { incident, classify, lines, order, match, viva, case: caseLab, team };
+  const TABS = Object.keys(FN).map(k => [k, null, FN[k]]);
   function mount(host, tab) {
     if (!host) return; const o = org();
-    host.innerHTML = `<div class="wrap ar-wrap"><section class="ar-hero"><div class="ar-eyebrow">🧠 الذكاء الداخلي لتراكفورد — يعمل بالكامل داخل المتصفح</div><h2>ساحة الذكاء — أنشطة وتمارين وألعاب</h2><p>ثمانية أنشطة تُدرّبك على التفكير كمسؤول حماية: قرارات تحت الضغط، تمييز العناصر، خطوط المساءلة، تسلسل النموذج، المصطلحات، شرح المفاهيم بصوتك، تحليل حالات حقيقية${o ? ` من «${esc(o.name)}»` : ''}، وتحدي بين المجموعات. نتائجك تُحفظ وتظهر للمدرب.</p><div id="arScore">${scoreHtml()}</div></section><nav class="ar-tabs">${TABS.map(t => `<button data-t="${t[0]}">${t[1]}</button>`).join('')}</nav><section class="ar-body" id="arBody"></section></div>`;
+    host.innerHTML = `<div class="wrap ar-wrap"><section class="ar-hero"><div class="ar-eyebrow">🧠 ${L('الذكاء الداخلي لتراكفورد — يعمل بالكامل داخل المتصفح', 'Track Ford built-in intelligence — runs entirely in your browser')}</div><h2>${L('ساحة الذكاء — أنشطة وتمارين وألعاب', 'AI Arena — activities, exercises & games')}</h2><p>${L(`ثمانية أنشطة تُدرّبك على التفكير كمسؤول حماية: قرارات تحت الضغط، تمييز العناصر، خطوط المساءلة، تسلسل النموذج، المصطلحات، شرح المفاهيم بصوتك، تحليل حالات حقيقية${o ? ` من «${esc(o.name)}»` : ''}، وتحدي بين المجموعات. نتائجك تُحفظ وتظهر للمدرب.`, `Eight activities that train you to think like a protector: decisions under pressure, element recognition, lines of accountability, model sequences, terminology, explaining concepts in your own words, analysing real cases${o ? ` from “${esc(o.name)}”` : ''}, and a team challenge. Scores are saved and visible to your trainer. Activity content is Arabic-first.`)}</p><div id="arScore">${scoreHtml()}</div></section><nav class="ar-tabs">${TABS.map(t => `<button data-t="${t[0]}">${ICON[t[0]]} ${NAMES[t[0]]}</button>`).join('')}</nav><section class="ar-body" id="arBody"></section></div>`;
     const open = k => { host.querySelectorAll('.ar-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === k)); const t = TABS.find(x => x[0] === k) || TABS[0]; t[2](host.querySelector('#arBody')); };
     host.querySelectorAll('.ar-tabs button').forEach(b => b.onclick = () => open(b.dataset.t)); open(tab || 'incident');
   }

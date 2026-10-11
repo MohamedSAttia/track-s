@@ -7551,497 +7551,120 @@ async function askLLM(q){
 }
 
 /* ---------------- الواجهة ---------------- */
-function mount(sel){
-  load();
-  const host=typeof sel==='string'?$(sel):sel;
-  if(!host) return;
+const FALLBACK = 'لم أجد إجابة دقيقة في قاعدة معرفتي لهذه الصياغة 🙂<br>جرّب:'+
+ '<ul><li>مصطلحاً بعينه: «ما الفرق بين المخاطرة المتأصلة والمتبقية؟»</li>'+
+ '<li>عنصراً: «اشرح P5» أو «عنصر الثقافة»</li>'+
+ '<li>سؤالاً بالرقم: «سؤال 42»</li>'+
+ '<li>حقائق الاختبار: «كم عدد الأسئلة؟» · «ما مجالات الاختبار؟»</li></ul>';
 
-  host.innerHTML=`
-  <div class="d1-intro">
-    <h3>${w('title')}</h3>
-    <p>${w('intro')}</p>
-    <div class="d1-save"><span id="d1Saved">${w('autosave')}</span>
-      <button class="btn btn-o btn-xs" id="d1Export">${w('exp')}</button>
-      <button class="btn btn-o btn-xs" id="d1ImportB">${w('imp')}</button>
-      <input type="file" id="d1Import" accept="application/json" style="display:none">
-      <button class="btn btn-b btn-xs" id="d1Print">${w('prn')}</button>
-      <button class="btn btn-r btn-xs" id="d1Reset">${w('rst')}</button></div>
-  </div>
-
-  <div class="d1-steps" id="d1Steps"></div>
-
-  <!-- 1) بيانات المنظمة -->
-  <section class="d1-card" id="d1s1">
-    <div class="d1-h"><span class="d1-n">1</span><h4>${w('s1')}</h4></div>
-    <div class="d1-grid">
-      <label>${w('fName')}<input id="oName" placeholder="${w('fNameP')}"></label>
-      <label>${w('fSector')}<select id="oSector"><option value="">${w('fSectorP')}</option></select></label>
-      <label>${w('fCountry')}<select id="oCountry"><option value="">${w('fCountryP')}</option></select></label>
-      <label>${w('fEmp')}<input id="oEmp" type="number" min="1" placeholder="${w('fEmpP')}"></label>
-      <label>${w('fRev')} <small>${w('fRevN')}</small>
-        <input id="oRev" type="number" min="0" placeholder="${w('fRevP')}"></label>
-      <label>${w('fNote')} <small>${w('fNoteN')}</small><input id="oNote" placeholder="${w('fNoteP')}"></label>
-    </div>
-  </section>
-
-  <!-- 2) الأسباب الثلاثة -->
-  <section class="d1-card" id="d1s2">
-    <div class="d1-h"><span class="d1-n">2</span><h4>${w('s2')}</h4></div>
-    <p class="d1-sub">${w('s2sub')}</p>
-    <div id="d1Cause"></div>
-  </section>
-
-  <!-- 3) VUCA -->
-  <section class="d1-card" id="d1s3">
-    <div class="d1-h"><span class="d1-n">3</span><h4>${w('s3')}</h4></div>
-    <p class="d1-sub">${w('s3sub')}</p>
-    <div id="d1Vuca"></div>
-  </section>
-
-  <!-- 4) الانفصال -->
-  <section class="d1-card" id="d1s4">
-    <div class="d1-h"><span class="d1-n">4</span><h4>${w('s4')}</h4></div>
-    <p class="d1-sub">${w('s4sub')}</p>
-    <div id="d1Disc"></div>
-  </section>
-
-  <!-- 5) النتائج -->
-  <section class="d1-card d1-res" id="d1s5">
-    <div class="d1-h"><span class="d1-n">5</span><h4>${w('s5')}</h4></div>
-    <div id="d1Out"></div>
-  </section>
-
-  <!-- 6) الأداء المنضبط عملياً -->
-  <section class="d1-card" id="d1s6">
-    <div class="d1-h"><span class="d1-n">6</span><h4>${w('s6')}</h4></div>
-    <p class="d1-sub">${w('s6sub')}</p>
-    <div id="d1Acts"></div>
-  </section>
-
-  <!-- 7) بعد التطبيق -->
-  <section class="d1-card d1-after" id="d1s7">
-    <div class="d1-h"><span class="d1-n">7</span><h4>${w('s7')}</h4></div>
-    <div id="d1After"></div>
-  </section>
-
-  <div class="d1-disc">${w('disclaimer')}</div>`;
-
-  /* ملء القوائم */
-  const selS=$('#oSector',host), selC=$('#oCountry',host);
-  SEC.forEach(s=>selS.insertAdjacentHTML('beforeend',`<option value="${s.k}">${secName(s)}</option>`));
-  CTY.forEach(c=>selC.insertAdjacentHTML('beforeend',`<option value="${c.ar}">${ctyName(c)}</option>`));
-
-  /* ربط حقول المنظمة */
-  const bind=(id,key)=>{
-    const el=$('#'+id,host);
-    el.value=S.org[key]||'';
-    el.addEventListener('input',()=>{S.org[key]=el.value;save();refresh()});
-    el.addEventListener('change',()=>{S.org[key]=el.value;save();refresh()});
-  };
-  bind('oName','name'); bind('oSector','sector'); bind('oCountry','country');
-  bind('oEmp','emp'); bind('oRev','rev'); bind('oNote','note');
-
-  /* الأسباب */
-  const cbox=$('#d1Cause',host);
-  CAU.forEach(c=>{
-    const g=document.createElement('div'); g.className='d1-grp';
-    g.innerHTML=`<div class="d1-grp-h" style="border-inline-start-color:${c.col}">
-        <b style="color:${c.col}">${cauName(c)}</b> <span class="en">${c.en}</span>
-        <p>${cauDesc(c)}</p></div>`;
-    c.items.forEach((it,i)=>{
-      const row=document.createElement('div'); row.className='d1-row';
-      row.innerHTML=`<div class="d1-q">${cauItem(c,i)}</div><div class="d1-lk" data-k="${c.k+i}"></div>`;
-      const lk=row.querySelector('.d1-lk');
-      SCALE_().forEach((lbl,v)=>{
-        const b=document.createElement('button');
-        b.className='d1-b'+(S.cause[c.k+i]===v?' on':'');
-        b.title=lbl; b.textContent=v;
-        b.style.cssText=S.cause[c.k+i]===v?`background:${c.col};border-color:${c.col};color:#fff`:'';
-        b.onclick=()=>{ S.cause[c.k+i]=v; save(); paintLikert(lk,S.cause[c.k+i],c.col,'cause',c.k+i); refresh(); };
-        lk.appendChild(b);
-      });
-      g.appendChild(row);
-    });
-    cbox.appendChild(g);
-  });
-
-  /* الانفصال */
-  const dbox=$('#d1Disc',host);
-  DIS.forEach(d=>{
-    const g=document.createElement('div'); g.className='d1-grp';
-    g.innerHTML=`<div class="d1-grp-h" style="border-inline-start-color:${d.col}">
-        <b style="color:${d.col}">${disName(d)}</b> <span class="en">${d.en}</span>
-        <p>${w('remedy')}: <b>${disFix(d)}</b></p></div>`;
-    d.items.forEach((it,i)=>{
-      const row=document.createElement('div'); row.className='d1-row';
-      row.innerHTML=`<div class="d1-q">${disItem(d,i)}</div><div class="d1-lk"></div>`;
-      const lk=row.querySelector('.d1-lk');
-      SCALE_().forEach((lbl,v)=>{
-        const b=document.createElement('button');
-        b.className='d1-b'+(S.disc[d.k+i]===v?' on':'');
-        b.title=lbl; b.textContent=v;
-        b.style.cssText=S.disc[d.k+i]===v?`background:${d.col};border-color:${d.col};color:#fff`:'';
-        b.onclick=()=>{ S.disc[d.k+i]=v; save(); paintLikert(lk,S.disc[d.k+i],d.col,'disc',d.k+i); refresh(); };
-        lk.appendChild(b);
-      });
-      g.appendChild(row);
-    });
-    dbox.appendChild(g);
-  });
-
-  function paintLikert(lk,val,col){
-    [...lk.children].forEach((b,v)=>{
-      const on=v===val;
-      b.className='d1-b'+(on?' on':'');
-      b.style.cssText=on?`background:${col};border-color:${col};color:#fff`:'';
-    });
-  }
-
-  /* الإجراءات */
-  const abox=$('#d1Acts',host);
-  const cCol={L:'#A97A26',A:'#0F766E',P:'#1D4ED8',R:'#047857'};
-  const cNm=W.comps[isEN()?1:0];
-  ['L','A','P','R'].forEach(ck=>{
-    const g=document.createElement('div'); g.className='d1-grp';
-    g.innerHTML=`<div class="d1-grp-h" style="border-inline-start-color:${cCol[ck]}">
-        <b style="color:${cCol[ck]}">${ck} — ${w('compPrefix')} ${cNm[ck]}</b></div>`;
-    ACT.forEach((a,i)=>{
-      if(a.c!==ck) return;
-      const t=document.createElement('div');
-      t.className='d1-act'+(S.acts[i]?' on':'');
-      t.innerHTML=`<div class="cb">${S.acts[i]?'✓':''}</div>
-        <div class="tx"><b>${actName(a,i)}</b> <code style="color:${cCol[ck]}">${a.el}</code>
-        <small>${actWhy(a,i)}</small></div>`;
-      t.onclick=()=>{ S.acts[i]?delete S.acts[i]:S.acts[i]=1; save();
-        t.classList.toggle('on',!!S.acts[i]); t.querySelector('.cb').textContent=S.acts[i]?'✓':''; refresh(); };
-      g.appendChild(t);
-    });
-    abox.appendChild(g);
-  });
-
-  /* أزرار الأدوات */
-  $('#d1Reset',host).onclick=()=>{ if(confirm(w('confirmReset'))){localStorage.removeItem(LS);location.reload()} };
-  $('#d1Print',host).onclick=()=>window.print();
-  $('#d1Export',host).onclick=()=>{
-    const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(b);
-    a.download=w('fileName')+(S.org.name||w('yourOrg'))+'.json'; a.click();
-  };
-  $('#d1ImportB',host).onclick=()=>$('#d1Import',host).click();
-  $('#d1Import',host).onchange=e=>{
-    const f=e.target.files[0]; if(!f)return;
-    const r=new FileReader();
-    r.onload=()=>{ try{ S=Object.assign(blank(),JSON.parse(r.result)); save(); location.reload(); }
-                   catch(err){ alert(w('badFile')) } };
-    r.readAsText(f);
-  };
-  onSaved=()=>{ const el=$('#d1Saved',host); if(!el)return;
-    el.textContent=w('savedAt')+' '+new Date().toLocaleTimeString(isEN()?'en-GB':'ar-EG',{hour:'2-digit',minute:'2-digit'});
-    clearTimeout(el._t); el._t=setTimeout(()=>el.textContent=w('autosave'),2600); };
-
-  refresh();
-  /* إعادة البناء الكامل عند تبديل اللغة */
-  if(window.I18N && !mount._bound){ mount._bound=true; window.I18N.onChange(()=>{ mount(sel); }); }
-
-  /* ============ العرض ============ */
-  function refresh(){
-    const R=compute();
-    paintSteps(R); paintVuca(R); paintOut(R); paintAfter(R);
-  }
-
-  function paintSteps(R){
-    const p=R.progress;
-    const done=[
-      !!(S.org.name&&S.org.sector&&S.org.country&&(S.org.emp||S.org.rev)),
-      p.answered===p.totalItems,
-      true,
-      p.dAnswered===p.dTotal,
-      p.answered===p.totalItems&&p.dAnswered===p.dTotal,
-      R.chosen>0, R.chosen>0
-    ];
-    const names=W.stepN[isEN()?1:0];
-    $('#d1Steps',host).innerHTML=names.map((n,i)=>
-      `<a class="d1-step${done[i]?' ok':''}" href="#d1s${i+1}"><b>${i+1}</b><span>${n}</span></a>`).join('');
-  }
-
-  function paintVuca(R){
-    const own=S.vuca.useOwn;
-    $('#d1Vuca',host).innerHTML=`
-      <div class="d1-vw">
-        <div class="d1-vl">${vucaRadar(R.vuca)}</div>
-        <div class="d1-vr">
-          <div class="d1-vidx">
-            <b style="color:${R.vucaIdx>=4?'#B01B2E':R.vucaIdx>=3.2?'#D97706':'#059669'}">${R.vucaIdx.toFixed(2)}</b>
-            <span>${w('vIdx')}</span>
-            <em>${R.vucaIdx>=4?w('vHigh'):R.vucaIdx>=3.2?w('vMid'):w('vLow')}</em>
-          </div>
-          <p class="d1-vnote">${w('vBase')}: <b>${S.org.country?ctyName(R.cty):w('vNoCty')}</b>
-             ${S.org.sector?`· ${w('vCx')} <b>${secName(R.sec)}</b> (+${R.sec.cx})`:''}</p>
-          <label class="d1-chk"><input type="checkbox" id="vOwn" ${own?'checked':''}>
-            ${w('vOwn')}</label>
-          <div id="vSliders" class="${own?'':'hide'}"></div>
-        </div>
-      </div>`;
-    $('#vOwn',host).onchange=e=>{S.vuca.useOwn=e.target.checked;save();refresh()};
-    if(own){
-      const sl=$('#vSliders',host);
-      const axL=W.vAx[isEN()?1:0];
-      [['v',axL[0]],['u',axL[1]],['c',axL[2]],['a',axL[3]]].forEach(([k,l])=>{
-        const w=document.createElement('div'); w.className='d1-sl';
-        w.innerHTML=`<span>${l}</span><input type="range" min="1" max="5" step="0.5" value="${S.vuca[k]||3}">
-                     <b>${(S.vuca[k]||3).toFixed(1)}</b>`;
-        const inp=w.querySelector('input');
-        inp.oninput=()=>{ S.vuca[k]=parseFloat(inp.value); w.querySelector('b').textContent=parseFloat(inp.value).toFixed(1); save(); };
-        inp.onchange=()=>refresh();
-        sl.appendChild(w);
-      });
-    }
-  }
-
-  function paintOut(R){
-    const p=R.progress, ready=p.answered>0;
-    if(!ready){
-      $('#d1Out',host).innerHTML=`<div class="d1-empty">${w('emptyRes')}</div>`;
-      return;
-    }
-    const parts=CAU.map(c=>({v:R.cs[c.k]/((R.cs.misconduct+R.cs.mistakes+R.cs.miscalc)||1),col:c.col,ar:c.ar}));
-    const lo=R.loss*0.7, hi=R.loss*1.3;
-
-    $('#d1Out',host).innerHTML=`
-      <div class="d1-hero">
-        <div class="d1-hero-l">
-          ${donut(parts)}
-          <div class="d1-hero-c"><b>${Math.round(R.sevAvg*100)}%</b><span>${w('expDeg')}</span></div>
-        </div>
-        <div class="d1-hero-r">
-          <h5>${w('distTitle')} ${esc(S.org.name)||w('yourOrg')}</h5>
-          ${CAU.map(c=>{
-            const sh=Math.round(parts.find(x=>x.ar===c.ar).v*100);
-            return `<div class="d1-cz">
-              <div class="t"><b style="color:${c.col}">${cauName(c)}</b>
-                <span>${sh}% ${w('ofLoss')} · ${w('expDeg')} ${Math.round(R.cs[c.k]*100)}%</span></div>
-              ${bar(R.cs[c.k]*100,c.col)}
-              <small>≈ <b>${fmtM(R.loss*parts.find(x=>x.ar===c.ar).v)}</b> ${w('perYear')}</small></div>`;
-          }).join('')}
-        </div>
-      </div>
-
-      <div class="d1-loss">
-        <div class="lbl">${w('lossLbl')}</div>
-        <div class="val">${fmtM(R.loss)} <small>${w('dollars')}</small></div>
-        <div class="rng">${w('lossRange')}: ${fmtM(lo)} — ${fmtM(hi)} ${w('dollars')}</div>
-        <div class="how">${w('basis')}: ${w('revenue')} ${R.revEstimated?w('revEst'):w('revGiven')}
-          <b>${fmtM(R.rev)}</b> × ${w('sectorRate')} ${secName(R.sec)} (${(R.sec.base*100).toFixed(1)}%)
-          × ${w('expMult')} ${(0.35+1.30*R.sevAvg).toFixed(2)}
-          × ${w('vucaMult')} ${(0.85+0.30*((R.vucaIdx-1)/4)).toFixed(2)}
-          × ${w('discMult')} ${(0.85+0.40*R.discIdx).toFixed(2)}</div>
-      </div>
-
-      <div class="d1-dsc">
-        <h5>${w('discTitle')}</h5>
-        <div class="d1-dsc-idx">${Math.round(R.discIdx*100)}%
-          <small>${R.discIdx>=.65?w('discHard'):R.discIdx>=.4?w('discMid'):w('discLow')}</small></div>
-        ${DIS.map(d=>`<div class="d1-cz"><div class="t"><b style="color:${d.col}">${disName(d)}</b>
-           <span>${Math.round(R.ds[d.k]*100)}% → ${w('remedy')}: ${disFix(d)}</span></div>
-           ${bar(R.ds[d.k]*100,d.col,8)}</div>`).join('')}
-      </div>
-
-      <div class="d1-recs">
-        <div class="d1-recs-h"><h5>${w('recTitle')}</h5>
-          <button class="btn btn-g btn-sm" id="d1AI">${w('recAI')}</button></div>
-        ${recommend(R).map(r=>`<div class="d1-rec">
-           <span class="pri ${r.k||'n'}">${r.p}</span>
-           <div><b>${r.t}</b><p>${r.b}</p></div></div>`).join('')}
-        <div id="d1AIOut">${S.ai?`<div class="d1-airesp">${S.ai}</div>`:''}</div>
-      </div>`;
-
-    $('#d1AI',host).onclick=aiAnalyze;
-  }
-
-  function paintAfter(R){
-    if(R.chosen===0){
-      $('#d1After',host).innerHTML=`<div class="d1-empty">${w('emptyAfter')}</div>`;
-      return;
-    }
-    const saved=R.loss-R.lossAfter, pct=R.loss?Math.round(saved/R.loss*100):0;
-    const _tp=W.tpN[isEN()?1:0];
-    const tpN=[['eff',_tp[0]],['efc',_tp[1]],['rsp',_tp[2]],['rsl',_tp[3]]];
-    $('#d1After',host).innerHTML=`
-      <div class="d1-ba">
-        <div class="d1-bacard before"><span>${w('beforePP')}</span>
-          <b>${fmtM(R.loss)}</b><small>${w('annualLoss')}</small>
-          <div class="mini">${w('discShort')} ${Math.round(R.discIdx*100)}% · ${w('matShort')} ${R.matBefore.toFixed(1)}/5</div></div>
-        <div class="d1-arrow">◀</div>
-        <div class="d1-bacard after"><span>${w('afterPP',{n:R.chosen})}</span>
-          <b>${fmtM(R.lossAfter)}</b><small>${w('annualLoss')}</small>
-          <div class="mini">${w('discShort')} ${Math.round(R.discAfter*100)}% · ${w('matShort')} ${R.matAfter.toFixed(1)}/5</div></div>
-      </div>
-      <div class="d1-saved">${w('savingLbl')}: <b>${fmtM(saved)} ${w('dollars')}</b>
-        <span>${w('savingPct',{p:pct})}</span></div>
-
-      <h5 class="d1-sh">${w('impactTitle')}</h5>
-      ${CAU.map(c=>`<div class="d1-cz"><div class="t"><b style="color:${c.col}">${cauName(c)}</b>
-         <span>${w('reduce')} ${Math.round(R.capped[c.k]*100)}%</span></div>
-         ${bar(R.capped[c.k]*100,c.col,9)}</div>`).join('')}
-
-      <h5 class="d1-sh">${w('tpTitle')}</h5>
-      ${tpN.map(([k,l])=>`<div class="d1-cz"><div class="t"><b>${l}</b>
-         <span>${Math.round(R.tpBefore[k])}% → <b style="color:#047857">${Math.round(R.tp[k])}%</b></span></div>
-         <div class="d1-bar2"><i class="b1" style="width:${R.tpBefore[k]}%"></i><i class="b2" style="width:${R.tp[k]}%"></i></div></div>`).join('')}
-
-      <div class="d1-verdict">
-        <b>${w('meaning')}</b>
-        <p>${w('verdict1')}</p>
-        <p>${w('verdict2a')} <b>${R.matBefore.toFixed(1)}</b> → <b>${R.matAfter.toFixed(1)}</b> ${w('verdict2b')}
-        ${R.matAfter>=4?w('verdict2hi'):w('verdict2lo')}</p>
-      </div>`;
-  }
-
-  /* ---------------- التحليل بالذكاء الاصطناعي ---------------- */
-  async function aiAnalyze(){
-    const R=compute();
-    const out=$('#d1AIOut',host);
-    out.innerHTML='<div class="d1-airesp"><span class="typing"><i></i><i></i><i></i></span> '+w('analysing')+'</div>';
-
-    const brief=`
-منظمة: ${S.org.name||'غير مسمّاة'}
-القطاع: ${R.sec.ar} | الدولة: ${S.org.country||'غير محددة'} | الموظفون: ${S.org.emp||'—'}
-الإيراد المستخدم: ${Math.round(R.rev)} دولار ${R.revEstimated?'(مُقدَّر)':''}
-نطاق التقييم: ${S.org.note||'كامل المنظمة'}
-
-درجات التعرّض (0-100):
-- سوء السلوك: ${Math.round(R.cs.misconduct*100)}
-- الأخطاء: ${Math.round(R.cs.mistakes*100)}
-- سوء التقدير: ${Math.round(R.cs.miscalc*100)}
-الخسارة السنوية التقديرية: ${Math.round(R.loss)} دولار
-
-VUCA: تقلّب ${R.vuca.v.toFixed(1)} | عدم يقين ${R.vuca.u.toFixed(1)} | تعقيد ${R.vuca.c.toFixed(1)} | غموض ${R.vuca.a.toFixed(1)} | المركّب ${R.vucaIdx.toFixed(2)}/5
-
-الانفصال (0-100): ${DIS.map(d=>d.ar+' '+Math.round(R.ds[d.k]*100)).join(' | ')} | المؤشر العام ${Math.round(R.discIdx*100)}
-
-أعلى البنود تعرّضاً:
-${[...CAU.flatMap(c=>c.items.map((it,i)=>({v:S.cause[c.k+i],it:cauItem(c,i),c:cauName(c)})))]
-  .filter(x=>x.v!=null).sort((a,b)=>b.v-a.v).slice(0,5)
-  .map(x=>`- [${x.c}] ${x.it} → ${SCALE_()[x.v]}`).join('\n')}
-
-الإجراءات المختارة (${R.chosen}): ${ACT.map((a,i)=>S.acts[i]?a.el+' '+a.ar:null).filter(Boolean).join(' ؛ ')||'لا شيء بعد'}`;
-
-    const prompt=`أنت مستشار GRC خبير يحلّل نتائج تشخيص لمنظمة، اعتماداً على نموذج قدرات GRC v3.5 من OCEG.
-
-${brief}
-
-${isEN()?'Write an executive analysis in English of about 320 words':'اكتب تحليلاً تنفيذياً بالعربية في حدود 320 كلمة'} يتضمّن بهذا الترتيب وبعناوين واضحة:
-1. قراءة الحالة: ما الذي تقوله هذه الأرقام عن هذه المنظمة تحديداً في قطاعها ودولتها.
-2. السبب الجذري الأرجح (واحد فقط) ولماذا هو الجذر وليس عرضاً.
-3. ثلاثة إجراءات لأول 90 يوماً، كل إجراء بعنصر النموذج المرتبط به (مثل P6 أو A1) وبمؤشر قياس واحد محدد.
-4. أكبر خطر على نجاح التطبيق في هذه المنظمة بالذات.
-استخدم صيغة مباشرة عملية، ولا تكرر الأرقام كما هي بل فسّرها.`;
-
-    try{
-      if(window.AlSaeedAI&&window.AlSaeedAI.hasKey&&window.AlSaeedAI.hasKey()){
-        const t=await window.AlSaeedAI.llm(prompt);
-        const html=esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-          .replace(/^#+\s*(.+)$/gm,'<b>$1</b>').replace(/\n{2,}/g,'</p><p>').replace(/\n/g,'<br>');
-        S.ai=`<b>✨ تحليل الذكاء الاصطناعي</b><p>${html}</p>`;
-      } else {
-        S.ai=localAnalysis(R);
-      }
-    }catch(e){
-      S.ai=localAnalysis(R)+`<span class="d1-warn">⚠️ تعذّر الاتصال بالنموذج الخارجي — هذا تحليل المحرّك الداخلي.</span>`;
-    }
-    save();
-    out.innerHTML=`<div class="d1-airesp">${S.ai}</div>`;
-  }
-
-  /* تحليل المحرّك الداخلي (يعمل بدون إنترنت) | offline engine analysis */
-  function localAnalysis(R){
-    const order=Object.keys(R.cs).sort((a,b)=>R.cs[b]-R.cs[a]);
-    const nm=k=>cauName(CAU.find(c=>c.k===k));
-    const dOrder=Object.keys(R.ds).sort((a,b)=>R.ds[b]-R.ds[a]);
-    const dTop=DIS.find(d=>d.k===dOrder[0]);
-    const ROOT={
-      ar:{misconduct:{r:'ضعف منظومة السلوك: القنوات والحوافز والاتساق في الاستجابة',
-            a:[['P6','قناة إبلاغ آمنة مجهولة الهوية','عدد البلاغات المبكرة شهرياً'],
-               ['P5','ربط جزء من المكافأة بمعايير سلوكية','نسبة المكافآت المشروطة سلوكياً'],
-               ['P7·P8','بروتوكول تحقيق واستجابة متسق','متوسط زمن إغلاق البلاغ']]},
-          mistakes:{r:'اعتماد العمليات الحرجة على الانتباه البشري بدل الضوابط النظامية',
-            a:[['P1','أتمتة الضوابط الحرجة وفصل المهام','نسبة الضوابط الآلية من الحرجة'],
-               ['R3','تحليل سبب جذري إلزامي لكل حادث جوهري','نسبة الحوادث المتكرّرة'],
-               ['P4','تدريب مصمّم حسب الدور والمخاطرة','معدل الأخطاء بعد التدريب']]},
-          miscalc:{r:'رداءة المعلومة الواصلة لصانع القرار وغياب حدود مخاطرة معتمدة',
-            a:[['A1','اعتماد شهية المخاطرة وحدود التحمّل كتابةً','عدد القرارات المرجعة لتجاوز الحد'],
-               ['R1','لوحة KPI/KRI/KCI شهرية مع الإدارة','نسبة المؤشرات المتقدّمة'],
-               ['L1·L2','تحديث السياق ربع سنوي','زمن اكتشاف تغيّر تنظيمي مؤثر']]}},
-      en:{misconduct:{r:'a weak conduct system: channels, incentives and consistency of response',
-            a:[['P6','A safe, anonymous reporting channel','Early reports received per month'],
-               ['P5','Tie part of the bonus to conduct criteria','Share of conduct-conditional bonuses'],
-               ['P7·P8','A consistent inquiry and response protocol','Average time to close a report']]},
-          mistakes:{r:'critical processes relying on human attention instead of system controls',
-            a:[['P1','Automate critical controls and segregate duties','Share of critical controls automated'],
-               ['R3','Mandatory root-cause analysis for every material incident','Rate of recurring incidents'],
-               ['P4','Role- and risk-based training','Error rate after training']]},
-          miscalc:{r:'poor information reaching decision-makers and no approved risk boundaries',
-            a:[['A1','Board-approved risk appetite and tolerance in writing','Decisions returned for breaching the limit'],
-               ['R1','Monthly KPI/KRI/KCI dashboard with management','Share of leading indicators'],
-               ['L1·L2','Quarterly context refresh','Time to detect a material regulatory change']]}}
-    }[isEN()?'en':'ar'][order[0]];
-
-    const risk = R.discIdx>=.6 ? 0 : R.vucaIdx>=4 ? 1 : R.cs.misconduct>=.6 ? 2 : 3;
-    const RISKS={
-      ar:['الانفصال المرتفع نفسه: أي مبادرة تُطلق من إدارة واحدة ستُقابَل بمقاومة أو تُكرَّر في إدارة أخرى. ابدأ بسجل موحّد وراعٍ تنفيذي واحد قبل أي أداة.',
-          'اضطراب البيئة: الخطة السنوية الجامدة ستتقادم قبل تنفيذها. اعمل بدورات ٩٠ يوماً ومراجعة شهرية.',
-          'فجوة الثقة: قناة الإبلاغ لن تُستخدم ما لم يرَ الموظفون أول قضية تُعالَج باتساق مهما كان مرتكبها.',
-          'التبنّي الشكلي: توثيق السياسات دون تغيير السلوك يرفع النضج ورقياً ويترك الخسارة كما هي. اقرن كل إجراء بمؤشر سلوكي لا بمؤشر إنجاز.'],
-      en:['The high disconnection itself: any initiative launched by one department will be resisted or duplicated by another. Start with a unified register and a single executive sponsor before buying any tool.',
-          'Environmental turbulence: a rigid annual plan will be obsolete before it is delivered. Work in 90-day cycles with monthly review.',
-          'The trust gap: the reporting channel will not be used until employees see the first case handled consistently, whoever committed it.',
-          'Cosmetic adoption: documenting policies without changing behaviour raises maturity on paper and leaves the loss untouched. Pair every action with a behavioural indicator, not a delivery milestone.']
-    }[isEN()?'en':'ar'][risk];
-
-    const orgName = esc(S.org.name) || w('yourOrg');
-    const pctRev = R.rev ? ((R.loss/R.rev)*100).toFixed(1) : '—';
-
-    if(isEN()){
-      return `<b>✨ Offline engine analysis</b>
-      <p><b>1) Reading the situation.</b> In the <b>${secName(R.sec)}</b> sector within
-      <b>${S.org.country?ctyName(R.cty):'an unspecified country'}</b> at a VUCA index of
-      <b>${R.vucaIdx.toFixed(1)}/5</b>, ${orgName}'s losses concentrate in
-      <b>${nm(order[0])}</b> (${Math.round(R.cs[order[0]]*100)}%), followed by ${nm(order[1])}
-      (${Math.round(R.cs[order[1]]*100)}%). The estimated annual loss of
-      <b>${fmtM(R.loss)} USD</b> is roughly <b>${pctRev}%</b> of revenue.</p>
-
-      <p><b>2) The most likely root cause.</b> ${root_r(root_of(ROOT))}. This is a root and not a symptom, because your
-      most severe disconnection is "<b>${disName(dTop)}</b>" at ${Math.round(R.ds[dOrder[0]]*100)}% —
-      and the symptoms you observe (recurring incidents, delayed decisions, duplicated controls)
-      are all outputs of that disconnection rather than independent causes.
-      The model's remedy: <b>${disFix(dTop)}</b>.</p>
-
-      <p><b>3) The first 90 days — three actions, each with one indicator:</b></p>
-      <ul>${ROOT.a.map(x=>`<li><code>${x[0]}</code> <b>${x[1]}</b> — indicator: ${x[2]}.</li>`).join('')}</ul>
-
-      <p><b>4) The biggest risk to implementation.</b> ${RISKS}</p>`;
-    }
-    return `<b>✨ تحليل المحرّك الداخلي</b>
-    <p><b>١) قراءة الحالة.</b> في قطاع <b>${secName(R.sec)}</b> ضمن بيئة
-    <b>${S.org.country?ctyName(R.cty):'غير محدّدة'}</b> بمؤشر VUCA <b>${R.vucaIdx.toFixed(1)}/5</b>،
-    تتركّز خسائر ${orgName} في <b>${nm(order[0])}</b> (${Math.round(R.cs[order[0]]*100)}٪)
-    يليه ${nm(order[1])} (${Math.round(R.cs[order[1]]*100)}٪).
-    والخسارة السنوية التقديرية <b>${fmtM(R.loss)} دولار</b> — أي ما يعادل تقريباً <b>${pctRev}٪</b> من الإيراد.</p>
-
-    <p><b>٢) السبب الجذري الأرجح.</b> ${ROOT.r}. هذا جذر لا عَرَض، لأن انفصالك الأشدّ هو
-    «<b>${disName(dTop)}</b>» بنسبة ${Math.round(R.ds[dOrder[0]]*100)}٪ — والأعراض التي تراها
-    (تكرار الحوادث، تأخر القرار، ازدواج الضوابط) كلها مخرجات لهذا الانفصال لا أسباباً مستقلة.
-    علاجه وفق النموذج: <b>${disFix(dTop)}</b>.</p>
-
-    <p><b>٣) أول ٩٠ يوماً — ثلاثة إجراءات بمؤشر لكل منها:</b></p>
-    <ul>${ROOT.a.map(x=>`<li><code>${x[0]}</code> <b>${x[1]}</b> — المؤشر: ${x[2]}.</li>`).join('')}</ul>
-
-    <p><b>٤) أكبر خطر على التطبيق.</b> ${RISKS}</p>`;
-    function root_of(o){return o} function root_r(o){return o.r}
-  }
+let msgsEl;
+function say(who,html){
+  const d=document.createElement('div');
+  d.className='amsg '+who; d.innerHTML=html;
+  msgsEl.appendChild(d); msgsEl.scrollTop=msgsEl.scrollHeight;
+  return d;
+}
+function typing(){
+  const d=say('ai','<span class="typing"><i></i><i></i><i></i></span>');
+  return d;
 }
 
-return {mount};
+async function handle(text){
+  say('me',esc(text));
+  const local = bestAnswer(text);
+  if(window.TFAI&&window.TFAI.ok){
+    const t=typing();
+    try{
+      const out=await askLLM(text);
+      t.innerHTML = out || (local?local.h:FALLBACK);
+      if(out) t.innerHTML += src('مدعوم بنموذج لغوي عبر خادم تراكفورد + قاعدة معرفة النموذج v3.5');
+    }catch(e){
+      t.innerHTML=(local?local.h:FALLBACK)+src('⚠️ تعذّر الاتصال بالخادم — أُجيب من المعرفة الداخلية.');
+    }
+    return;
+  }
+  say('ai', local?local.h:FALLBACK);
+}
+
+function quiz(){
+  const pool = window.GRCP_CTX?.chapter ? QB.filter(x=>x.ch===window.GRCP_CTX.chapter) : QB;
+  const x = pool[Math.floor(Math.random()*pool.length)];
+  say('me','اختبرني بسؤال');
+  const d=say('ai',renderQ(x,false)+'<br><i style="font-size:.74rem;color:#5B6B84">فكّر ثم اضغط لكشف الإجابة.</i>');
+  const b=document.createElement('button'); b.className='btn btn-o btn-xs'; b.style.marginTop='8px'; b.textContent='اكشف الإجابة والشرح';
+  b.onclick=()=>{ b.remove(); say('ai',renderQ(x,true)); };
+  d.appendChild(b);
+}
+
+function settings(){
+  const on=!!(window.TFAI&&window.TFAI.ok);
+  say('ai',`<b>⚙️ وضع المساعد</b><br>المساعد يعمل من <b>قاعدة معرفة داخلية</b> (النموذج v3.5 + بنك الأسئلة) بدون أي مفتاح.
+   ${on?'<br>كما أن <b>الذكاء التوليدي عبر خادم تراكفورد مفعّل ✅</b> لإجابات أعمق.':'<br>الذكاء التوليدي عبر الخادم غير مفعّل حاليًا — يفعّله مشرف المنصّة من إعدادات الاستضافة.'}`);
+}
+
+function mount(){
+  if(document.getElementById('aiFab')) return;
+
+  const fab=document.createElement('button');
+  fab.id='aiFab'; fab.title='مساعد تراكفورد الذكي';
+  fab.innerHTML='<span>🤖</span><span class="dot"></span>';
+  document.body.appendChild(fab);
+
+  const TT=k=>window.I18N?window.I18N.t(k):k;
+  const p=document.createElement('div'); p.id='aiPanel';
+  p.innerHTML=`
+   <div class="ai-hd">
+     <div class="av">🤖</div>
+     <div><h5 data-i18n="aiName"></h5><span><span data-i18n="aiSub"></span> • ${QB.length}</span></div>
+     <button class="x" id="aiX">✕</button>
+   </div>
+   <div id="aiMsgs"></div>
+   <div class="ai-q">
+     <button data-qa="ما هو الأداء المنضبط؟" data-qe="What is Principled Performance?" data-i18n="aiQ1"></button>
+     <button data-qa="ما الفرق بين KPI و KRI و KCI؟" data-qe="What is the difference between KPI, KRI and KCI?" data-i18n="aiQ2"></button>
+     <button data-qa="اشرح خطوط المساءلة الخمسة" data-qe="Explain the five lines of accountability" data-i18n="aiQ3"></button>
+     <button data-qa="ما مجالات الاختبار وأوزانها؟" data-qe="What are the exam domains and weights?" data-i18n="aiQ4"></button>
+     <button data-qa="اشرح نموذج النضج" data-qe="Explain the maturity model" data-i18n="aiQ5"></button>
+     <button data-qa="ما استراتيجية حل الأسئلة؟" data-qe="What is the answering strategy?" data-i18n="aiQ6"></button>
+     <button data-act="quiz" data-i18n="aiQuiz"></button>
+     <button data-act="set" data-i18n="aiSettings"></button>
+   </div>
+   <div class="ai-in">
+     <input id="aiIn" data-i18n="aiPlaceholder" data-i18n-attr="placeholder" autocomplete="off">
+     <button id="aiSend">➤</button>
+   </div>`;
+  document.body.appendChild(p);
+  msgsEl=p.querySelector('#aiMsgs');
+
+  say('ai', window.I18N?window.I18N.t('aiWelcome',{n:QB.length}):'');
+
+  const send=()=>{const i=p.querySelector('#aiIn');const v=i.value.trim();if(!v)return;i.value='';handle(v)};
+  p.querySelector('#aiSend').onclick=send;
+  p.querySelector('#aiIn').addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+  p.querySelector('#aiX').onclick=()=>p.classList.remove('show');
+  p.querySelectorAll('.ai-q button').forEach(b=>b.onclick=()=>{
+    if(b.dataset.act==='quiz') return quiz();
+    if(b.dataset.act==='set')  return settings();
+    handle((window.I18N&&window.I18N.lang==='en')?b.dataset.qe:b.dataset.qa);
+  });
+  if(window.I18N) window.I18N.apply();
+  fab.onclick=()=>{p.classList.toggle('show');if(p.classList.contains('show'))p.querySelector('#aiIn').focus()};
+
+  window.AlSaeedAI={
+    ask:handle,
+    open:()=>p.classList.add('show'),
+    answer:bestAnswer,
+    hasKey:()=>!!(window.TFAI&&window.TFAI.ok),
+    /* توليد حر بنموذج لغوي عبر خادم تراكفورد — يُستخدم من النشاط التطبيقي. يُرجع null إن لم يكن الخادم مفعّلاً */
+    llm:async (prompt,system)=>{
+      if(!(window.TFAI&&window.TFAI.ok)) return null;
+      return await window.TFAI.ask(prompt, system||SYS, {max_tokens:2000});
+    }
+  };
+}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mount);
+else mount();
 })();
 </script>
 

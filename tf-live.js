@@ -8,26 +8,26 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const HEX = { L: '#1AA39A', A: '#E5483D', P: '#E59A1F', R: '#8E2A6B' };
   const Q = {
-    L1: 'خلنا نبدأ بالسياق الخارجي. فيه عندكم أحد يتابع الأنظمة الجديدة واللوائح وتغيّرات السوق أول بأول؟ وكيف توصل المعلومة للإدارة؟',
-    L2: 'طيب، السياق الداخلي: عملياتكم وأصولكم المهمة موثّقة ومفهومة؟ ولا المعرفة في رؤوس الناس؟',
-    L3: 'الثقافة: لو موظف شاف خطأ، يتكلم براحته ولا يسكت؟ وهل تقيسون الثقافة بأي طريقة؟',
-    L4: 'أصحاب المصلحة: عندكم سجل واضح بمتطلبات الجهات التنظيمية والعملاء والشركاء، وتتواصلون معهم بانتظام؟',
-    A1: 'التوجيه: المجلس معتمد شهية مخاطر وحدود تحمّل مكتوبة؟ ولا الموضوع اجتهادات؟',
-    A2: 'الأهداف: أهدافكم واضحة ومتسلسلة من المنظمة للإدارات، ولها مؤشرات؟',
-    A3: 'التحديد: عندكم سجل موحّد للمخاطر والفرص والالتزامات النظامية؟ ولا كل إدارة لها ملف لحالها؟',
-    A4: 'التقييم: كيف تقيّمون المخاطر؟ احتمالية وأثر؟ كامن ومتبقي؟ وتقارنونها بالشهية؟',
-    A5: 'التصميم: لما تطلع مخاطرة كبيرة، كيف تصمّمون المعالجة؟ فيه مالك وموعد وميزانية؟',
-    P1: 'الضوابط: ضوابطكم موثّقة ولها ملّاك وتُختبر؟ ولا موجودة بالعادة والخبرة؟',
-    P2: 'السياسات: سياساتكم محدّثة ومعتمدة، والموظفين يقرّون عليها؟',
-    P3: 'التواصل: معلومات الحوكمة والمخاطر توصل للإدارة والمجلس في وقتها؟ وبأي شكل؟',
-    P4: 'التثقيف: التدريب عندكم حسب الدور ولا تدريب عام للكل؟ وتقيسون أثره؟',
-    P5: 'الحوافز: المكافآت والجزاءات مرتبطة بالسلوك المنضبط والنزاهة؟',
-    P6: 'الإبلاغ: فيه قناة سرية للبلاغات؟ والناس تثق فيها؟ وفيه حماية للمبلّغ؟',
-    P7: 'الاستقصاء: لما يجيكم بلاغ، كيف تحققون فيه؟ فيه إجراء ثابت ومستقل؟',
-    P8: 'الاستجابة: عندكم خطط للحوادث والأزمات؟ ومتى آخر مرة اختبرتوها؟',
-    R1: 'المتابعة: عندكم لوحة مؤشرات أداء ومخاطر وامتثال؟ وفيه إنذار مبكر؟',
-    R2: 'الضمان: المراجعة الداخلية تشتغل على أساس المخاطر؟ وفيه تنسيق بين الخطوط؟',
-    R3: 'التحسين: لما تصير حادثة أو ملاحظة، تتحوّل لتحسين فعلي في النظام؟ كيف؟' };
+    L1: 'نبدأ بالسياق الخارجي. عندكم أحد مسؤول يتابع الأنظمة الجديدة واللوايح وتغيّرات السوق أول بأول؟ وإذا طلع شي جديد، كيف يوصل للإدارة؟',
+    L2: 'طيب، السياق الداخلي: عملياتكم وأصولكم المهمة مكتوبة وموثّقة؟ ولا المعرفة كلها في روس الموظفين وإذا راح واحد راحت معه؟',
+    L3: 'الثقافة عندكم: لو موظف شاف غلط، يتكلم على راحته ولا يسكت ويقول ما لي دخل؟ وهل تقيسون الثقافة بأي استبيان أو مؤشر؟',
+    L4: 'أصحاب المصلحة: عندكم سجل واضح بمتطلبات الجهات التنظيمية والعملاء والشركاء؟ وتتواصلون معهم بشكل منتظم ولا بس وقت المشاكل؟',
+    A1: 'التوجيه: مجلس الإدارة معتمد شهية مخاطر وحدود تحمّل مكتوبة ومعروفة؟ ولا الموضوع كل واحد يجتهد على كيفه؟',
+    A2: 'الأهداف: أهدافكم واضحة ومتسلسلة من المنظمة لين الإدارات والأقسام؟ ولها مؤشرات تقيسونها؟',
+    A3: 'التحديد: عندكم سجل واحد موحّد للمخاطر والفرص والالتزامات النظامية؟ ولا كل إدارة عندها ملفها لحالها وما أحد يدري عن الثاني؟',
+    A4: 'التقييم: كيف تقيّمون المخاطر عندكم؟ تحسبون الاحتمالية والأثر؟ تفرّقون بين الخطر الكامن والمتبقي؟ وتقارنونه بالشهية؟',
+    A5: 'التصميم: لما تطلع لكم مخاطرة كبيرة، كيف تصمّمون معالجتها؟ فيه مالك مسؤول وموعد وميزانية؟ ولا تنحل بالاجتهاد؟',
+    P1: 'الضوابط: ضوابطكم مكتوبة ولها ملّاك وتُختبر بشكل دوري؟ ولا ماشية بالعادة وخبرة الموظف القديم؟',
+    P2: 'السياسات: سياساتكم محدّثة ومعتمدة، والموظفين فعلًا قاريينها وموقّعين عليها؟ ولا مكدّسة في درج؟',
+    P3: 'التواصل: معلومات الحوكمة والمخاطر توصل للإدارة والمجلس في وقتها؟ وبأي شكل، تقارير دورية ولا لما تصير مصيبة؟',
+    P4: 'التثقيف: التدريب عندكم مفصّل على حسب دور كل موظف ولا تدريب عام للكل؟ وهل تقيسون أثره بعدين؟',
+    P5: 'الحوافز: المكافآت والترقيات والجزاءات مرتبطة بالسلوك المنضبط والنزاهة؟ ولا بس بالأرقام والمبيعات؟',
+    P6: 'الإبلاغ: فيه قناة سرية يبلّغ فيها الموظف عن المخالفات؟ والناس تثق فيها فعلًا؟ وفيه حماية للمبلّغ من الانتقام؟',
+    P7: 'الاستقصاء: لما يجيكم بلاغ، كيف تحققون فيه؟ فيه إجراء ثابت ومستقل؟ ولا يعتمد على مزاج المدير؟',
+    P8: 'الاستجابة: عندكم خطط جاهزة للحوادث والأزمات واستمرارية الأعمال؟ ومتى آخر مرة جربتوها فعليًا؟',
+    R1: 'المتابعة: عندكم لوحة مؤشرات للأداء والمخاطر والامتثال تتابعونها؟ وفيه إنذار مبكر يطق قبل ما تكبر المشكلة؟',
+    R2: 'الضمان: المراجعة الداخلية تشتغل على أساس المخاطر؟ وفيه تنسيق بين الخط الأول والثاني والثالث ولا كل واحد يراجع لحاله؟',
+    R3: 'التحسين: لما تصير حادثة أو تجيكم ملاحظة، تتحوّل لتحسين حقيقي في النظام؟ ولا تنقفل وتتكرر السنة الجاية؟' };
   const LVL_RE = [
     [5, /تحسين مستمر|نحسّن|نحسن باستمرار|دروس مستفاد|مقارن(ة|ات) مرجعي|نطوّر|نطور كل|benchmark|افضل الممارسات|أفضل الممارسات/],
     [4, /مؤشر|مؤشرات|نقيس|قياس|لوحة|داشبورد|بيانات|نسبة|تقرير دوري|تقارير دورية|كل ربع|شهري|kpi|kri|kci/i],
@@ -37,17 +37,19 @@
   const YES = /^(نعم|ايه|إيه|أكيد|اكيد|طبعا|طبعاً|ايوه|أيوه|موجود|فيه)\b/;
   const QUESTION = /\?|؟|^(وش|ايش|إيش|كيف|ليش|ليه|متى|وين|من هو|هل|ممكن تشرح|يعني ايش|يعني وش)/;
   const REFLECT = {
-    1: n => `واضح. يعني ${n} عندكم ما له نظام للحين — وهذا مستوى واحد، مبدئي. ما يحتاج تنزعج، أغلب الجهات تبدأ من هنا.`,
-    2: n => `تمام، فيه جهود في ${n} بس تعتمد على أشخاص وما هي موثّقة بالكامل — نحطّها مستوى اثنين، مُدار.`,
-    3: n => `ممتاز، ${n} عندكم موثّق ومطبّق باتساق — هذا مستوى ثلاثة، متّسق. أساس قوي.`,
-    4: n => `ما شاء الله، تقيسون ${n} بمؤشرات وتراجعون النتائج — مستوى أربعة، مُقاس. قليل اللي يوصل هنا.`,
-    5: n => `هذا أعلى مستوى: تحسين مستمر في ${n} مبني على بيانات ودروس — مستوى خمسة. حافظوا عليه ووثّقوا الأدلة.` };
-  const PROBE = ['ممكن تعطيني مثال من الواقع عشان أفهم أكثر؟', 'طيب وضّح لي أكثر: هذا موثّق ومكتوب، ولا يعتمد على خبرة الأشخاص؟', 'تمام، وهل تقيسونه بأي مؤشر أو تقرير دوري؟'];
-  const SMALL = { greet: ['هلا والله', 'يا هلا', 'حياك الله'], ok: ['تمام', 'طيب', 'أبشر', 'واضح', 'جميل'], thanks: ['العفو، هذا واجبنا', 'ولو، تأمر'] };
+    1: n => `واضح، يعني ${n} عندكم للحين ما له نظام — نحطّه مستوى واحد، مبدئي. ولا يهمّك، أغلب الجهات تبدأ من هنا، المهم إنكم عرفتوا وين واقفين.`,
+    2: n => `تمام، فيه جهود في ${n} بس تعتمد على أشخاص معيّنين وما هي موثّقة كلها — هذا مستوى اثنين، مُدار. خطوة وحدة وتصير متّسقة.`,
+    3: n => `ممتاز ما قصّرتوا، ${n} عندكم موثّق ومطبّق في كل مكان — هذا مستوى ثلاثة، متّسق. أساس قوي تبنون عليه.`,
+    4: n => `ما شاء الله تبارك الله، تقيسون ${n} بمؤشرات وتراجعون النتائج — مستوى أربعة، مُقاس. والله قليل اللي يوصل هنا.`,
+    5: n => `هذا أعلى شي: تحسين مستمر في ${n} مبني على بيانات ودروس مستفادة — مستوى خمسة. حافظوا عليه ووثّقوا الأدلة عشان المراجع.` };
+  const PROBE = ['طيب عطني مثال من الواقع عشان أفهم أكثر؟', 'وضّح لي أكثر: هذا مكتوب وموثّق، ولا يعتمد على خبرة الأشخاص؟', 'تمام، وهل تقيسونه بمؤشر أو تقرير دوري؟', 'يعني لو سألت موظف جديد عنه، يعرف يجاوبني؟'];
+  const SMALL = { greet: ['هلا والله وغلا', 'يا هلا ومرحبا', 'حيّاك الله', 'أهلين وسهلين'], ok: ['تمام', 'طيب', 'أبشر', 'واضح', 'زين'], thanks: ['العفو، هذا واجبنا', 'ولو، تأمر أمر'] };
+  /* نسخة فصحى للصوت الآلي (أصوات المتصفح تنطق الفصحى أوضح) */
+  const toMSA = t => t.replace(/عندكم/g, 'لديكم').replace(/وش |وش$/g, 'ما ').replace(/كيفه/g, 'هواه').replace(/للحين/g, 'حتى الآن').replace(/بس /g, 'لكن ').replace(/زين/g, 'جيد').replace(/أبشر/g, 'حسنًا').replace(/هلا والله وغلا|يا هلا ومرحبا|أهلين وسهلين/g, 'أهلًا وسهلًا').replace(/حيّاك الله/g, 'مرحبًا بك').replace(/ما قصّرتوا/g, 'أحسنتم').replace(/عطني/g, 'أعطني').replace(/بعدين/g, 'لاحقًا').replace(/لين /g, 'إلى ').replace(/روس/g, 'رؤوس').replace(/تطق/g, 'ينبّه').replace(/الجاية/g, 'القادمة').replace(/يطلع|تطلع/g, 'يظهر').replace(/جربتوها/g, 'اختبرتموها').replace(/ماشية/g, 'تسير').replace(/قاريينها/g, 'قرؤوها').replace(/تجيكم|يجيكم/g, 'يصلكم').replace(/تنقفل/g, 'تُغلق').replace(/ما لي دخل/g, 'لا شأن لي').replace(/تدري/g, 'تعلم').replace(/يدري/g, 'يعلم').replace(/تبنون/g, 'تبنون').replace(/شي\b/g, 'شيء').replace(/هالـ|هال/g, 'هذه ال');
   const pick = a => a[Math.floor(Math.random() * a.length)];
 
   let ctx, host, CV, CX, cam = null, camVideo = null, mic = null, analyser = null, rec = null, chunks = [], recording = false, raf = null;
-  const ST = { mouth: 0, blink: 0, nextBlink: 0, speaking: false, listening: false, sub: '', subWho: 'ai', lvls: {}, meter: {}, turn: 0, plan: [], idx: -1, probes: 0, awaiting: null, log: [], done: false, started: false, face: null, vol: 0, name: '', busy: false, voice: null };
+  const ST = { mode: 'draw', clips: {}, msa: false, mouth: 0, blink: 0, nextBlink: 0, speaking: false, listening: false, sub: '', subWho: 'ai', lvls: {}, meter: {}, turn: 0, plan: [], idx: -1, probes: 0, awaiting: null, log: [], done: false, started: false, face: null, vol: 0, name: '', busy: false, voice: null };
 
   /* ───── الصوت: اختيار أوضح صوت عربي متاح ───── */
   function pickVoice() {
@@ -62,7 +64,7 @@
       ST.sub = text; ST.subWho = 'ai';
       if (!window.speechSynthesis) { ST.speaking = true; setTimeout(() => { ST.speaking = false; res(); }, Math.max(1500, text.length * 55)); return; }
       try { speechSynthesis.cancel(); } catch (e) {}
-      const u = new SpeechSynthesisUtterance(text); u.lang = 'ar-SA'; u.rate = 0.98; u.pitch = 0.95; if (ST.voice) u.voice = ST.voice;
+      const u = new SpeechSynthesisUtterance(ST.msa ? toMSA(text) : text); u.lang = 'ar-SA'; u.rate = 0.98; u.pitch = 0.95; if (ST.voice) u.voice = ST.voice;
       let ended = false; const fin = () => { if (ended) return; ended = true; ST.speaking = false; res(); };
       u.onstart = () => { ST.speaking = true; }; u.onend = fin; u.onerror = fin; u.onboundary = () => { ST.mouth = 1; };
       speechSynthesis.speak(u); setTimeout(fin, Math.max(2500, text.length * 120)); // أمان
@@ -109,15 +111,15 @@
   async function run() {
     if (ST.started) return; ST.started = true; ST.done = false; ST.lvls = {}; ST.meter = {}; ST.log = []; host.querySelector('#lvLog').innerHTML = '';
     const name = (S().p.name || '').trim(); const u = (window.TFC && window.TFC.user && window.TFC.user()) || null; ST.name = u && !u.guest ? u.name.split(' ')[0] : '';
-    await say(`${pick(SMALL.greet)}${ST.name ? ' يا ' + ST.name : ''}، أنا سعود، مستشار الحوكمة والمخاطر والامتثال في تراكفورد. اليوم بنسولف شوي عن ${name ? '«' + name + '»' : 'جهتكم'} ونقيّم قدرات الحوكمة والمخاطر والامتثال عندكم على نموذج أوسيج ثلاثة ونص. جاوبني بكل أريحية، وإذا عندك سؤال اسألني في أي وقت.`);
-    if (!name) { await say('أول شي، عرّفني على جهتكم: وش اسمها ووش طبيعة شغلها؟'); const a = await listen(); if (a) { ST.log.push({ who: 'me', text: a }); logTurn({ who: 'me', text: a }); const nm = a.replace(/^(احنا|إحنا|نحن|اسمها|جهتنا|شركة|شركتنا)\s*/g, '').split(/[،,.]/)[0].trim().slice(0, 60); if (nm) { S().p.name = nm; try { ctx.save && ctx.save(); } catch (e) {} } await say(`${pick(SMALL.ok)}، حيّاكم. خلنا نبدأ.`); } }
+    await say(`${pick(SMALL.greet)}${ST.name ? ' يا ' + ST.name : ''}، أنا سعود، مستشار الحوكمة والمخاطر والامتثال في تراكفورد. اليوم ودّي نسولف شوي عن ${name ? '«' + name + '»' : 'جهتكم'} ونشوف وين واصلين في قدرات الحوكمة والمخاطر والامتثال على نموذج أوسيج ثلاثة ونص. جاوبني على راحتك بدون رسميات، وإذا عندك أي سؤال اسألني في أي وقت.`);
+    if (!name) { await say('أول شي، عرّفني على جهتكم: وش اسمها ووش طبيعة شغلها؟'); const a = await listen(); if (a) { ST.log.push({ who: 'me', text: a }); logTurn({ who: 'me', text: a }); const nm = a.replace(/^(احنا|إحنا|نحن|اسمها|جهتنا|شركة|شركتنا)\s*/g, '').split(/[،,.]/)[0].trim().slice(0, 60); if (nm) { S().p.name = nm; try { ctx.save && ctx.save(); } catch (e) {} } await say(`${pick(SMALL.ok)}، الله يحيّيكم. يلا نبدأ.`); } }
     ST.plan = plan(); ST.idx = -1;
     while (ST.idx < ST.plan.length - 1) {
       ST.idx++; const c = ST.plan[ST.idx]; const tgt = +S().p.target || 4;
-      await say(Q[c]); let ans = await listen(); if (!ans) { await say('ما سمعتك زين — ممكن تعيد؟ أو اكتبها لي.'); ans = await listen(); }
+      await say(Q[c]); let ans = await listen(); if (!ans) { await say('ما سمعتك زين — ممكن تعيدها؟ أو اكتبها لي تحت.'); ans = await listen(); }
       if (!ans) continue;
       ST.log.push({ who: 'me', text: ans }); logTurn({ who: 'me', text: ans });
-      if (QUESTION.test(ans) && ans.length < 160) { await say(answerQuestion(ans)); await say('نرجع لسؤالنا: ' + Q[c]); ans = await listen(); if (!ans) continue; ST.log.push({ who: 'me', text: ans }); logTurn({ who: 'me', text: ans }); }
+      if (QUESTION.test(ans) && ans.length < 160) { await say(answerQuestion(ans)); await say('طيب، نرجع لسؤالنا: ' + Q[c]); ans = await listen(); if (!ans) continue; ST.log.push({ who: 'me', text: ans }); logTurn({ who: 'me', text: ans }); }
       let lv = estimate(ans);
       if (!lv && ST.probes < 3) { ST.probes++; await say(pick(PROBE)); const more = await listen(); if (more) { ST.log.push({ who: 'me', text: more }); logTurn({ who: 'me', text: more }); lv = estimate(ans + ' ' + more) || 2; } else lv = 2; }
       if (!lv) lv = 2;
@@ -126,18 +128,40 @@
       const e = EL().find(x => x[0] === c);
       await say(REFLECT[lv](e[1]) + (lv < tgt ? ` عشان توصلون للمستوى ${tgt}: ${e[4]}` : ''));
     }
-    const m = ctx.lossModel(); await say('آخر سؤال: خلال السنة الماضية، تقريبًا كم كانت خسائركم من الغرامات أو الحوادث أو التعطّل؟ لو ما عندكم رقم قولوا لي.');
-    const la = await listen(); if (la) { ST.log.push({ who: 'me', text: la }); logTurn({ who: 'me', text: la }); const num = (la.replace(/,/g, '').match(/\d+(\.\d+)?/) || [])[0]; if (num) { let v = +num; if (/مليون/.test(la)) v *= 1e6; else if (/ألف|الف/.test(la)) v *= 1e3; S().l.ops = [1, v]; try { ctx.save && ctx.save(); } catch (e) {} await say(`يعني تقريبًا ${ctx.fmt(v)} ريال. هذا رقم مهم لأنه يحوّل الحوكمة من "مصروف" إلى "استثمار له عائد".`); } else await say('تمام، أول خطوة أنصح فيها: سجل حوادث وخسائر موحّد — بدونه ما تقدرون تثبتون قيمة البرنامج.'); }
+    const m = ctx.lossModel(); await say('آخر سؤال وما أطوّل عليك: خلال السنة اللي راحت، تقريبًا كم خسرتوا من غرامات أو حوادث أو تعطّل؟ ولو ما عندكم رقم عادي قول لي.');
+    const la = await listen(); if (la) { ST.log.push({ who: 'me', text: la }); logTurn({ who: 'me', text: la }); const num = (la.replace(/,/g, '').match(/\d+(\.\d+)?/) || [])[0]; if (num) { let v = +num; if (/مليون/.test(la)) v *= 1e6; else if (/ألف|الف/.test(la)) v *= 1e3; S().l.ops = [1, v]; try { ctx.save && ctx.save(); } catch (e) {} await say(`يعني تقريبًا ${ctx.fmt(v)} ريال. هذا رقم مهم جدًا، لأنه يحوّل الحوكمة في نظر الإدارة من مصروف إلى استثمار له عائد واضح.`); } else await say('تمام، أول شي أنصحكم فيه: سجل واحد للحوادث والخسائر — بدونه ما تقدرون تثبتون للإدارة قيمة البرنامج.'); }
     const vals = Object.values(ST.lvls); const ov = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
     let rep = null; try { rep = ctx.buildLocalReport(); } catch (e) {}
     const weak = Object.entries(ST.meter).sort((a, b) => a[1] - b[1]).map(([k]) => ctx.COMP.find(c => c.k === k).ar);
-    await say(`خلاصة كلامنا: مؤشر قدرات الحوكمة والمخاطر والامتثال عندكم تقريبًا ${ov.toFixed(1)} من خمسة — ${ctx.lvName(ov)}. أضعف مكوّن ${weak[0] || '—'} وبعده ${weak[1] || '—'}.${rep ? ' أول ثلاث أولويات لأول تسعين يوم: ' + rep.recommendations.slice(0, 3).map((r, i) => `${i + 1}) ${r.title}`).join('، ') + '.' : ''} التقرير الكامل بالتوصيات جاهز في المرحلة الخامسة، وتقدرون تحمّلونه وتعرضونه على الإدارة.`);
-    await say(`شكرًا لوقتكم${ST.name ? ' يا ' + ST.name : ''}، وتراكفورد معكم خطوة بخطوة. بالتوفيق.`);
+    await say(`خلاصة سوالفنا: مؤشر قدرات الحوكمة والمخاطر والامتثال عندكم تقريبًا ${ov.toFixed(1)} من خمسة، يعني ${ctx.lvName(ov)}. أضعف مكوّن عندكم ${weak[0] || '—'} وبعده ${weak[1] || '—'}.${rep ? ' وأهم ثلاث أولويات لأول تسعين يوم: ' + rep.recommendations.slice(0, 3).map((r, i) => `${i + 1}) ${r.title}`).join('، ') + '.' : ''} التقرير الكامل بالتوصيات جاهز لكم في المرحلة الخامسة، حمّلوه واعرضوه على الإدارة.`);
+    await say(`يعطيكم العافية على وقتكم${ST.name ? ' يا ' + ST.name : ''}، وتراكفورد معكم خطوة بخطوة. موفّقين إن شاء الله.`);
     ST.done = true; ST.started = false; try { window.TFC && window.TFC.mark('sim'); } catch (e) {} try { ctx.onFinish && ctx.onFinish(); } catch (e) {}
     if (recording) stopRec(); setBtn(); host.querySelector('#lvStart').textContent = '🔁 مقابلة جديدة';
   }
   function logTurn(t) { const d = document.createElement('div'); d.className = 'lv-t ' + t.who; d.innerHTML = `<b>${t.who === 'ai' ? 'سعود · المستشار' : (ST.name || 'أنت')}</b>${esc(t.text)}`; const L = host.querySelector('#lvLog'); L.append(d); L.scrollTop = 1e9; }
 
+  /* ───── مقدّم حقيقي: مقاطع فيديو (تحدث/استماع) محفوظة في المتصفح ───── */
+  const DB = { open: () => new Promise((res, rej) => { const r = indexedDB.open('tf_live', 1); r.onupgradeneeded = () => r.result.createObjectStore('clips'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }),
+    get: async k => { try { const d = await DB.open(); return await new Promise((res, rej) => { const q = d.transaction('clips').objectStore('clips').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => rej(q.error); }); } catch (e) { return null; } },
+    set: async (k, v) => { try { const d = await DB.open(); return await new Promise((res, rej) => { const q = d.transaction('clips', 'readwrite').objectStore('clips').put(v, k); q.onsuccess = () => res(true); q.onerror = () => rej(q.error); }); } catch (e) { return false; } } };
+  function setClip(k, blob) { if (!blob) return; const v = document.createElement('video'); v.src = URL.createObjectURL(blob); v.muted = true; v.loop = true; v.playsInline = true; v.play().catch(() => {}); ST.clips[k] = v; if (ST.clips.talk) { ST.mode = 'video'; updModeUI(); } }
+  async function loadClips() { const t = await DB.get('talk'), i = await DB.get('idle'); if (t) setClip('talk', t); if (i) setClip('idle', i); const f = await DB.get('face'); if (f) { const im = new Image(); im.onload = () => { ST.face = im; if (!ST.clips.talk) { ST.mode = 'photo'; updModeUI(); } }; im.src = URL.createObjectURL(f); } }
+  async function recordClip(k) {
+    if (!cam) { const ok = await startCam(); if (!ok) return; }
+    const vs = new MediaStream(cam.getVideoTracks()); const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+    const r = new MediaRecorder(vs, mime ? { mimeType: mime, videoBitsPerSecond: 2.5e6 } : undefined); const ch = []; r.ondataavailable = e => { if (e.data.size) ch.push(e.data); };
+    const btn = host.querySelector(k === 'talk' ? '#lvRecTalk' : '#lvRecIdle'); let n = 8; btn.disabled = true; const tick = setInterval(() => { n--; btn.textContent = (k === 'talk' ? 'تكلّم الآن… ' : 'انظر للكاميرا وأومئ… ') + n; }, 1000);
+    ST.sub = k === 'talk' ? 'سجّل الآن: تكلّم بشكل طبيعي لمدة 8 ثوانٍ (بدون صوت، للفم فقط)' : 'سجّل الآن: اسمع وأومئ برأسك بهدوء لمدة 8 ثوانٍ'; ST.subWho = 'me';
+    r.onstop = async () => { clearInterval(tick); btn.disabled = false; btn.textContent = k === 'talk' ? '⏺ سجّل مقطع التحدث (8 ث)' : '⏺ سجّل مقطع الاستماع (8 ث)'; const blob = new Blob(ch, { type: 'video/webm' }); await DB.set(k, blob); setClip(k, blob); ST.sub = 'تم حفظ المقطع ✅ — المقدّم الآن بصورتك الحقيقية.'; };
+    r.start(); setTimeout(() => { try { r.stop(); } catch (e) {} }, 8000);
+  }
+  function updModeUI() { host.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('gold', b.dataset.mode === ST.mode)); const st = host.querySelector('#lvClipSt'); if (st) st.textContent = (ST.clips.talk ? '✅ مقطع التحدث محفوظ' : '◻ لا يوجد مقطع تحدث') + ' · ' + (ST.clips.idle ? '✅ مقطع الاستماع محفوظ' : '◻ لا يوجد مقطع استماع') + (ST.face ? ' · ✅ صورة محفوظة' : ''); }
+  function drawVideoPresenter(cx, cy, t) {
+    const talk = ST.clips.talk, idle = ST.clips.idle || ST.clips.talk; const v = ST.speaking ? talk : idle; if (!v || v.readyState < 2) return false;
+    const w = 460, h = 520, x = cx - w / 2, y = cy - h / 2 + 20; const nod = ST.speaking ? Math.sin(t / 300) * 2 : 0;
+    CX.save(); rr(x, y + nod, w, h, 26); CX.clip(); const vr = v.videoWidth / v.videoHeight || 1.33; let dw = w, dh = w / vr; if (dh < h) { dh = h; dw = h * vr; } CX.translate(x + w, 0); CX.scale(-1, 1); CX.drawImage(v, (w - dw) / 2, y + nod + (h - dh) / 2, dw, dh); CX.restore();
+    CX.strokeStyle = ST.speaking ? '#E2B85A' : 'rgba(255,255,255,.35)'; CX.lineWidth = 4; rr(x, y + nod, w, h, 26); CX.stroke(); return true;
+  }
   /* ───── الرسم ───── */
   function rr(x, y, w, h, r) { CX.beginPath(); CX.moveTo(x + r, y); CX.arcTo(x + w, y, x + w, y + h, r); CX.arcTo(x + w, y + h, x, y + h, r); CX.arcTo(x, y + h, x, y, r); CX.arcTo(x, y, x + w, y, r); CX.closePath(); }
   function wrap(text, maxW, font) { CX.font = font; const words = String(text).split(/\s+/), lines = []; let cur = ''; words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (CX.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }); if (cur) lines.push(cur); return lines; }
@@ -153,7 +177,7 @@
     CX.save(); CX.beginPath(); CX.moveTo(-95 * sc, -60 * sc); CX.quadraticCurveTo(-120 * sc, 120 * sc, -60 * sc, 200 * sc); CX.lineTo(60 * sc, 200 * sc); CX.quadraticCurveTo(120 * sc, 120 * sc, 95 * sc, -60 * sc); CX.closePath(); CX.clip();
     CX.strokeStyle = 'rgba(190,40,40,.55)'; CX.lineWidth = 1.2 * sc; for (let i = -140; i <= 140; i += 14) { CX.beginPath(); CX.moveTo(i * sc, -80 * sc); CX.lineTo(i * sc, 220 * sc); CX.stroke(); CX.beginPath(); CX.moveTo(-140 * sc, i * sc + 60 * sc); CX.lineTo(140 * sc, i * sc + 60 * sc); CX.stroke(); } CX.restore();
     // الوجه
-    if (ST.face) { CX.save(); CX.beginPath(); CX.ellipse(0, 0, 62 * sc, 78 * sc, 0, 0, Math.PI * 2); CX.clip(); const im = ST.face; const r = Math.max(124 * sc / im.width, 156 * sc / im.height); CX.drawImage(im, -im.width * r / 2, -im.height * r / 2 - 6 * sc, im.width * r, im.height * r); CX.restore(); }
+    if (ST.face && ST.mode !== 'draw') { CX.save(); CX.beginPath(); CX.ellipse(0, 0, 62 * sc, 78 * sc, 0, 0, Math.PI * 2); CX.clip(); const im = ST.face; const r = Math.max(124 * sc / im.width, 156 * sc / im.height); CX.drawImage(im, -im.width * r / 2, -im.height * r / 2 - 6 * sc, im.width * r, im.height * r); CX.restore(); }
     else {
       CX.fillStyle = '#D9A56E'; CX.beginPath(); CX.ellipse(0, 0, 62 * sc, 78 * sc, 0, 0, Math.PI * 2); CX.fill();
       // لحية خفيفة
@@ -187,7 +211,7 @@
     if (t > ST.nextBlink) { ST.blink = Math.min(1, ST.blink + 0.25); if (ST.blink >= 1) ST.nextBlink = t + 2500 + Math.random() * 3000; } else ST.blink = Math.max(0, ST.blink - 0.2);
     // فم
     if (ST.speaking) { ST.mouth = Math.max(0, ST.mouth - 0.12) + (Math.random() < 0.35 ? Math.random() * 0.8 : 0); ST.mouth = Math.min(1, ST.mouth); } else ST.mouth = Math.max(0, ST.mouth - 0.15);
-    drawPersona(W * 0.68, H * 0.46, 1.25, t);
+    if (!(ST.mode === 'video' && drawVideoPresenter(W * 0.68, H * 0.46, t))) drawPersona(W * 0.68, H * 0.46, 1.25, t);
     // بطاقة اسم المستشار
     CX.fillStyle = 'rgba(255,255,255,.95)'; rr(W * 0.68 - 170, H * 0.46 + 232, 340, 54, 12); CX.fill(); CX.fillStyle = '#0A1B3D'; CX.font = '700 20px Rubik, Tahoma'; CX.textAlign = 'center'; CX.fillText('سعود — مستشار GRC الذكي', W * 0.68, H * 0.46 + 240); CX.fillStyle = '#5B6476'; CX.font = '500 12px Rubik, Tahoma'; CX.fillText(ST.speaking ? '🔊 يتحدث' : ST.listening ? '👂 يستمع إليك' : 'جاهز', W * 0.68, H * 0.46 + 264);
     // مقياس النضج
@@ -231,7 +255,9 @@
   function mount(c, h) {
     ctx = c; host = h;
     host.innerHTML = `<div class="lv-wrap"><div class="lv-main"><canvas id="lvCanvas" width="1280" height="720" aria-label="المقابلة الحية"></canvas>
-      <div class="lv-ctl"><button class="btn gold" id="lvStart">▶ ابدأ المقابلة</button><button class="btn" id="lvRec">⏺ تسجيل المقابلة</button><button class="btn ghost" id="lvCamBtn">📷 تشغيل الكاميرا</button><label class="btn ghost" style="cursor:pointer">🖼 صورة المستشار<input type="file" id="lvFace" accept="image/*" hidden></label><button class="btn ghost" id="lvStop">⏹ إنهاء</button><span class="note" id="lvCam">الكاميرا غير مفعّلة</span></div>
+      <div class="lv-ctl"><button class="btn gold" id="lvStart">▶ ابدأ المقابلة</button><button class="btn" id="lvRec">⏺ تسجيل المقابلة</button><button class="btn ghost" id="lvCamBtn">📷 تشغيل الكاميرا</button><button class="btn ghost" id="lvStop">⏹ إنهاء</button><span class="note" id="lvCam">الكاميرا غير مفعّلة</span></div>
+      <div class="lv-pres"><b>المقدّم:</b> <button class="btn ghost" data-mode="draw">🧑‍💼 شخصية مرسومة</button><button class="btn ghost" data-mode="photo">🖼 صورة حقيقية</button><button class="btn ghost" data-mode="video">🎥 فيديو حقيقي</button> <label class="btn ghost" style="cursor:pointer">رفع صورة<input type="file" id="lvFace" accept="image/*" hidden></label><button class="btn ghost" id="lvRecTalk">⏺ سجّل مقطع التحدث (8 ث)</button><button class="btn ghost" id="lvRecIdle">⏺ سجّل مقطع الاستماع (8 ث)</button><label class="btn ghost" style="cursor:pointer">رفع مقطع تحدث<input type="file" id="lvUpTalk" accept="video/*" hidden></label><label class="btn ghost" style="cursor:pointer">رفع مقطع استماع<input type="file" id="lvUpIdle" accept="video/*" hidden></label><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="lvMsa" style="width:auto"> نطق بالفصحى (أوضح مع أصوات المتصفح)</label><span class="note" id="lvClipSt"></span></div>
+      <div class="note">💡 لمقدّم يبدو شخصًا حقيقيًا: اختر «فيديو حقيقي» وسجّل مقطعين من كاميرتك (8 ثوانٍ تتكلّم بصمت + 8 ثوانٍ تستمع وتومئ) — تُحفظ في المتصفح ويُعرض مقطع التحدث كلما نطق المستشار ومقطع الاستماع عندما يسمعك.</div>
       <div class="lv-in"><span id="lvMic" class="lv-mic">🎙️</span><input id="lvIn" placeholder="تكلّم بصوتك… أو اكتب هنا إن لم يعمل المايك"><button class="btn" id="lvSend" disabled>إرسال</button></div>
       <div class="note">يعمل التعرف الصوتي والصوت العربي بأفضل جودة في Microsoft Edge على ويندوز (صوت «Naayf» السعودي) وفي Chrome على أندرويد. يمكنك دائمًا الكتابة بدل الكلام.</div></div>
       <div class="card lv-side"><h3 style="margin:0 0 8px">نص المقابلة</h3><div class="lv-log" id="lvLog"><div class="note">اضغط «ابدأ المقابلة» — سعود سيرحّب بك ويبدأ الأسئلة.</div></div></div></div>`;
@@ -241,11 +267,17 @@
     host.querySelector('#lvCamBtn').onclick = startCam;
     host.querySelector('#lvRec').onclick = () => recording ? stopRec() : startRec();
     host.querySelector('#lvStop').onclick = () => { try { speechSynthesis.cancel(); } catch (e) {} ST.started = false; ST.listening = false; try { SRi && SRi.stop(); } catch (e) {} if (recording) stopRec(); ST.sub = 'انتهت المقابلة.'; };
-    host.querySelector('#lvFace').onchange = e => { const f = e.target.files[0]; if (!f) return; const im = new Image(); im.onload = () => { ST.face = im; }; im.src = URL.createObjectURL(f); };
+    host.querySelector('#lvFace').onchange = async e => { const f = e.target.files[0]; if (!f) return; const im = new Image(); im.onload = () => { ST.face = im; ST.mode = 'photo'; updModeUI(); }; im.src = URL.createObjectURL(f); await DB.set('face', f); };
+    host.querySelector('#lvUpTalk').onchange = async e => { const f = e.target.files[0]; if (!f) return; await DB.set('talk', f); setClip('talk', f); updModeUI(); };
+    host.querySelector('#lvUpIdle').onchange = async e => { const f = e.target.files[0]; if (!f) return; await DB.set('idle', f); setClip('idle', f); updModeUI(); };
+    host.querySelector('#lvRecTalk').onclick = () => recordClip('talk'); host.querySelector('#lvRecIdle').onclick = () => recordClip('idle');
+    host.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { if (b.dataset.mode === 'video' && !ST.clips.talk) { ctx.note('سجّل أو ارفع مقطع التحدث أولًا.'); return; } if (b.dataset.mode === 'photo' && !ST.face) { ctx.note('ارفع صورة أولًا.'); return; } ST.mode = b.dataset.mode; updModeUI(); });
+    host.querySelector('#lvMsa').onchange = e => { ST.msa = e.target.checked; };
+    loadClips().then(updModeUI); updModeUI();
     if (raf) cancelAnimationFrame(raf); ST.nextBlink = performance.now() + 1500; raf = requestAnimationFrame(frame);
   }
   function unmount() { if (raf) cancelAnimationFrame(raf); raf = null; stopCam(); try { speechSynthesis.cancel(); } catch (e) {} }
-  const css = document.createElement('style'); css.textContent = `.lv-wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px}@media(max-width:900px){.lv-wrap{grid-template-columns:1fr}}#lvCanvas{width:100%;height:auto;aspect-ratio:16/9;display:block;border-radius:12px;background:#0A1B3D}.lv-ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.lv-in{display:flex;gap:8px;align-items:center;margin-top:10px}.lv-in input{flex:1}.lv-mic{font-size:22px;opacity:.4}.lv-mic.on{opacity:1;animation:lvp 1s infinite}@keyframes lvp{50%{transform:scale(1.25)}}.lv-log{max-height:560px;overflow:auto;display:grid;gap:8px;font-size:14px}.lv-t{padding:8px 10px;border-radius:10px;background:var(--chip,#F3EBDA);border-inline-start:4px solid #C9973B}.lv-t.ai{background:var(--goldsoft,#F6EEDC);border-color:#0A1B3D}.lv-t b{display:block;font-size:12px;color:var(--muted,#5B6476)}`; document.head.appendChild(css);
+  const css = document.createElement('style'); css.textContent = `.lv-wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px}@media(max-width:900px){.lv-wrap{grid-template-columns:1fr}}#lvCanvas{width:100%;height:auto;aspect-ratio:16/9;display:block;border-radius:12px;background:#0A1B3D}.lv-ctl,.lv-pres{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.lv-pres{background:var(--chip,#F3EBDA);border-radius:12px;padding:8px 10px;font-size:13px}.lv-pres .btn{padding:6px 12px;font-size:12.5px}.lv-in{display:flex;gap:8px;align-items:center;margin-top:10px}.lv-in input{flex:1}.lv-mic{font-size:22px;opacity:.4}.lv-mic.on{opacity:1;animation:lvp 1s infinite}@keyframes lvp{50%{transform:scale(1.25)}}.lv-log{max-height:560px;overflow:auto;display:grid;gap:8px;font-size:14px}.lv-t{padding:8px 10px;border-radius:10px;background:var(--chip,#F3EBDA);border-inline-start:4px solid #C9973B}.lv-t.ai{background:var(--goldsoft,#F6EEDC);border-color:#0A1B3D}.lv-t b{display:block;font-size:12px;color:var(--muted,#5B6476)}`; document.head.appendChild(css);
   function resume() { if (CV && !raf) raf = requestAnimationFrame(frame); }
   window.TFLive = { mount, unmount, resume, state: ST };
 })();
