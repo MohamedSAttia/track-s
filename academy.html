@@ -1163,6 +1163,7 @@ mark{background:#FCEFC7;color:#7A4A0C;border-radius:4px;padding:0 2px}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 <script src="tf-ai.js"></script>
+<script src="tf-course.js"></script>
 <script src="tf-bridge.js"></script>
 <script src="tf-arena.js"></script>
 <!-- TF-GUARD -->
@@ -2586,6 +2587,7 @@ const T={
   navGlossary: ['القاموس','Glossary'],
   navExam:     ['محاكي الاختبار','Exam Simulator'],
   navArena:    ['🤖 ساحة الذكاء','AI Arena'],
+  navCourse:   ['📅 مسار الدورة','Course track'],
   navAbout:    ['عن البرنامج','Programme'],
   signIn:      ['تسجيل','Sign in'],
   myProgress:  ['تقدّمي','My progress'],
@@ -7058,7 +7060,7 @@ const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 const TAG = {'أساسي':'Core','تكامل':'Integration','مراجعة':'Revision'};
 
 /* ---------------- الترويسة والتذييل ---------------- */
-const NAV=[['#/','navHome'],['#/lectures','navLectures'],['#/plan','navPlan'],['#/glossary','navGlossary'],['#/arena','navArena']];
+const NAV=[['#/','navHome'],['#/course','navCourse'],['#/lectures','navLectures'],['#/plan','navPlan'],['#/glossary','navGlossary'],['#/arena','navArena']];
 
 function chrome(route){
   const base = '#/'+(route.split('/')[1]||'');
@@ -7109,6 +7111,7 @@ function chrome(route){
         <a href="#/lectures" data-i18n="navLectures"></a>
         <a href="#/plan" data-i18n="navPlan"></a>
         <a href="#/glossary" data-i18n="navGlossary"></a>
+        <a href="#/course" data-i18n="navCourse"></a>
         <a href="#/arena" data-i18n="navArena"></a>
         <a href="#/exam" data-i18n="navExam"></a>
       </div>
@@ -7266,6 +7269,8 @@ const ROUTES={
            sub:['خطة دراسة أربعة عشر يوماً','A fourteen-day study plan']},
   'glossary':{body:()=>BODY.glossary, init:()=>window.SPA_INIT.glossary(),
               sub:['القاموس ثنائي اللغة','Bilingual glossary']},
+  'course': {body:()=>'<div id="courseHost"></div>', init:()=>window.TFC&&window.TFC.mountTrack(document.getElementById('courseHost')),
+            sub:['مسار الدورة — يومك الحالي وتقدّمك','Course track — today and your progress']},
   'arena': {body:()=>'<div id="arenaHost"></div>', init:()=>window.TFArena&&window.TFArena.mount(document.getElementById('arenaHost'), (location.hash.split('/')[2]||'')),
             sub:['ساحة الذكاء الاصطناعي — أنشطة وتمارين وألعاب','AI arena — activities, exercises & games']}
 };

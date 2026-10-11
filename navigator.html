@@ -135,7 +135,9 @@ footer .wrap{padding-block:14px;display:flex;flex-wrap:wrap;gap:8px 18px;justify
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 <script src="tf-ai.js"></script>
+<script src="tf-course.js"></script>
 <script src="tf-bridge.js"></script>
+<script src="tf-live.js"></script>
 <!-- TF-GUARD -->
 <meta name="robots" content="noindex,nofollow,noarchive,noai,noimageai">
 <style>
@@ -255,12 +257,15 @@ footer .wrap{padding-block:14px;display:flex;flex-wrap:wrap;gap:8px 18px;justify
 
   <!-- 6 Simulation video: AI ↔ entity -->
   <section class="step" id="s6" hidden data-title="فيديو المحاكاة" data-en="Simulation video">
-    <div class="head"><div><h2><span class="mark"></span>محاكاة تقييم: المستشار الذكي يحاور الجهة</h2><div class="sub">فيديو تفاعلي يُولَّد من بيانات مؤسستك: المستشار الذكي يسأل، وممثل الجهة يجيب بحسب الواقع المُدخل، ويُبنى مقياس النضج أمامك. يمكن تشغيله في القاعة أو تنزيله ملف فيديو.</div></div>
+    <div class="head"><div><h2><span class="mark"></span>المقابلة الحية وفيديو المحاكاة</h2><div class="sub"><b>المقابلة الحية:</b> المستشار «سعود» بوجه وصوت باللهجة السعودية يسألك عبر الكاميرا والمايك، يفهم إجاباتك، ويبني مقياس النضج مباشرة، مع تسجيل فيديو للمقابلة. <b>الفيديو التلقائي:</b> حوار مُولَّد من بياناتك لعرضه في القاعة أو تنزيله.</div></div>
       <div class="btns">
         <button class="btn gold" type="button" id="simPlay">▶ تشغيل المحاكاة</button>
         <button class="btn" type="button" id="simGen">🤖 توليد سيناريو بالذكاء الاصطناعي</button>
         <button class="btn ghost" type="button" id="simRec">⬇ تسجيل وتنزيل الفيديو</button>
       </div></div>
+    <div class="btns sim-tabs"><button class="btn gold" type="button" data-simtab="live" id="tabLive">🎥 المقابلة الحية (كاميرا + صوت)</button><button class="btn ghost" type="button" data-simtab="auto" id="tabAuto">🎬 الفيديو التلقائي</button></div>
+    <div id="liveHost"></div>
+    <div id="simAuto" hidden>
     <div class="card"><div class="note" id="simNote">السيناريو الحالي مبني محليًا من إجاباتك على الاستبيان. اضغط «توليد سيناريو بالذكاء الاصطناعي» لحوار أغنى يراعي قطاعك وتحدياتك (يتطلب تفعيل الخادم).</div></div>
     <div class="sim-wrap">
       <div class="card" style="padding:10px">
@@ -278,6 +283,7 @@ footer .wrap{padding-block:14px;display:flex;flex-wrap:wrap;gap:8px 18px;justify
         <div class="sim-log" id="simLog"><div class="note">اضغط «تشغيل المحاكاة».</div></div>
         <div class="btns" style="margin-top:10px"><button class="btn ghost" type="button" id="simCopy">نسخ النص</button><button class="btn ghost" type="button" id="simHtml">تنزيل النص</button></div>
       </div>
+    </div>
     </div>
     <div class="btns"><button class="btn ghost" type="button" data-go="5">→ التوصيات</button></div>
   </section>
@@ -738,7 +744,7 @@ function simTick(ts) {
   if (!SIM.playing) return;
   const dt = Math.min(0.1, (ts - (SIM.last || ts)) / 1000) * SIM.speed; SIM.last = ts;
   const cur = SIM.script[SIM.i];
-  if (!cur) { SIM.playing = false; SIM.done = true; SIM.phase = 'idle'; drawFrame(); $('#simPlay').textContent = '▶ تشغيل المحاكاة'; if (SIM.rec) stopRec(); return; }
+  if (!cur) { SIM.playing = false; SIM.done = true; try { window.TFC && window.TFC.mark('sim'); } catch (e) {} SIM.phase = 'idle'; drawFrame(); $('#simPlay').textContent = '▶ تشغيل المحاكاة'; if (SIM.rec) stopRec(); return; }
   if (SIM.phase === 'idle') { SIM.phase = 'typing'; SIM.typed = 0; SIM.t = 0; SIM.shown.push(cur); logTurn(cur); speak(cur.text); }
   if (SIM.phase === 'typing') { SIM.typed = Math.min(cur.text.length, SIM.typed + dt * 46); if (SIM.typed >= cur.text.length) { SIM.phase = 'hold'; SIM.t = 0; if (cur.el && cur.lvl != null && cur.who === 'ai') { SIM.lvls[cur.el] = cur.lvl || 0; const k = cur.el[0]; const v = Object.entries(SIM.lvls).filter(([c, l]) => c[0] === k && l).map(([, l]) => l); SIM.meter[k] = v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0; } } }
   else if (SIM.phase === 'hold') { SIM.t += dt; if (SIM.t > 0.7 + Math.min(1.2, cur.text.length / 200)) { SIM.phase = 'idle'; SIM.i++; updProg(); } }
@@ -769,7 +775,10 @@ $('#simGen').onclick = async () => {
 };
 $('#simCopy').onclick = () => { const txt = SIM.script.map(t => `${t.who === 'ai' ? 'المستشار الذكي' : 'ممثل الجهة'}: ${t.text}`).join('\n'); navigator.clipboard?.writeText(txt).then(() => { $('#simNote').textContent = 'نُسخ نص الحوار.'; }); };
 $('#simHtml').onclick = () => { const html = `<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>محاكاة تقييم GRC — ${esc(S.p.name)}</title><body style="font-family:Tahoma;max-width:860px;margin:24px auto;line-height:1.8"><h1 style="color:#0A1B3D;border-bottom:3px solid #C9973B">محاكاة تقييم قدرات GRC — ${esc(S.p.name)}</h1>${SIM.script.map(t => `<p><b style="color:${t.who === 'ai' ? '#0A1B3D' : '#A97A26'}">${t.who === 'ai' ? 'المستشار الذكي' : 'ممثل الجهة'}:</b> ${esc(t.text)}</p>`).join('')}<p style="color:#5B6476;font-size:12px">تراكفورد · د. محمد عطية</p></body></html>`; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = 'TrackFord_GRC_Simulation.html'; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); };
-const _go = go; go = function (n) { _go(n); if (n === 6) { if (!SIM.script.length || SIM.script.length < 6) SIM.script = localScript(); if (!SIM.playing) { if (!SIM.shown.length) simReset(); drawFrame(); } } };
+const LIVE_CTX = { get S() { return S; }, EL, COMP, LV, score, lossModel, payload, lvName, fmt, buildLocalReport, localAnswer, save, note: m => { $('#simNote').textContent = m; }, onFinish: () => { try { buildQ(); renderResults(); } catch (e) {} } };
+function simTab(k) { document.querySelectorAll('[data-simtab]').forEach(b => { b.classList.toggle('gold', b.dataset.simtab === k); b.classList.toggle('ghost', b.dataset.simtab !== k); }); $('#simAuto').hidden = k !== 'live' ? false : true; $('#liveHost').hidden = k !== 'live'; if (k === 'live') { if (window.TFLive && !$('#lvCanvas')) window.TFLive.mount(LIVE_CTX, $('#liveHost')); else if (window.TFLive) window.TFLive.resume(); } else { if (window.TFLive) window.TFLive.unmount(); } }
+document.querySelectorAll('[data-simtab]').forEach(b => b.onclick = () => simTab(b.dataset.simtab));
+const _go = go; go = function (n) { _go(n); if (n === 6) { if ($('#liveHost').hidden && $('#simAuto').hidden) simTab('live'); else if (!$('#liveHost').hidden && !$('#lvCanvas')) simTab('live'); if (!SIM.script.length || SIM.script.length < 6) SIM.script = localScript(); if (!SIM.playing) { if (!SIM.shown.length) simReset(); drawFrame(); } } };
 window.go = go;
 
 // ---------- boot ----------

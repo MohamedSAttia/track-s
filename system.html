@@ -1189,6 +1189,7 @@ body.en-mode .en{direction:ltr}
 </style>
 <style>.logo,.hm-logo,.cert-logo{background:#fff!important;box-shadow:0 0 0 2px #C9973B inset}</style>
 <script src="tf-ai.js"></script>
+<script src="tf-course.js"></script>
 <script src="tf-bridge.js"></script>
 <!-- TF-GUARD -->
 <meta name="robots" content="noindex,nofollow,noarchive,noai,noimageai">
@@ -10258,6 +10259,15 @@ function expPPT() {
   });
 
   /* ── الختام ── */
+  /* ═══ مخطط اكتمال المكوّنات (رسم بياني أصلي قابل للتحرير) ═══ */
+  try {
+    const compRows = secs.map(sec => { let all = 0, done = 0; sec.els.forEach(x => x.tools.forEach(y => { all++; const d = y.d || {}; if (Object.values(d).some(v => Array.isArray(v) ? v.some(r => Object.values(r || {}).some(z => String(z || '').trim())) : (typeof v === 'string' ? v.trim() : v && typeof v === 'object' && Object.keys(v).length))) done++; })); return { name: sec.c.ar + ' ' + sec.c.en, pct: all ? Math.round(done / all * 100) : 0, w: sec.c.w }; });
+    if (compRows.length) {
+      const c = frame(p.addSlide(), 'COMPONENT COMPLETION', 'اكتمال المكوّنات الأربعة', false, 'المؤشرات');
+      c.addChart(p.ChartType.bar, [{ name: 'نسبة الاكتمال %', labels: compRows.map(r => r.name), values: compRows.map(r => r.pct) }], { x: M, y: 1.3, w: CW * 0.62, h: 4.9, barDir: 'bar', chartColors: ['C9A227'], showValue: true, dataLabelPosition: 'outEnd', dataLabelFontFace: 'Montserrat', dataLabelFontSize: 11, catAxisLabelFontFace: 'Rubik', catAxisLabelFontSize: 11, valAxisMaxVal: 100, valAxisMinVal: 0, valGridLine: { color: LINE, size: 0.5 }, catGridLine: { style: 'none' }, showLegend: false, showTitle: false, valAxisLabelFontSize: 9, valAxisLabelColor: GREY });
+      compRows.forEach((r, i) => { c.addShape('roundRect', { x: M + CW * 0.66, y: 1.3 + i * 1.2, w: CW * 0.34, h: 1.05, fill: { color: ICE }, line: { type: 'none' }, rectRadius: 0.08 }); c.addText(r.name, ar({ x: M + CW * 0.66 + 0.15, y: 1.36 + i * 1.2, w: CW * 0.34 - 0.3, h: 0.4, fontSize: 12, bold: true, color: NAVY, isTextBox: true })); c.addText(`${r.pct}% اكتمال · وزن المكوّن ${r.w}%`, ar({ x: M + CW * 0.66 + 0.15, y: 1.78 + i * 1.2, w: CW * 0.34 - 0.3, h: 0.4, fontSize: 11, color: GREY, isTextBox: true })); });
+    }
+  } catch (e) {}
   /* ═══ الأداء الشامل — قبل وبعد ═══ */
   const M2X = window.DASH ? window.DASH.metrics() : null;
   if (M2X) {

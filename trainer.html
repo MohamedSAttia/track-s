@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>لوحة المدرب — Track Ford GRC</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&family=Montserrat:wght@600;800&display=swap">
+<style>
+:root{--navy:#0A1B3D;--navy2:#13295A;--gold:#C9973B;--gold2:#E2B85A;--bg:#FBF8F2;--line:#E7DCC6;--fg:#1B2436;--muted:#5B6476;--good:#047857;--warn:#B45309;--bad:#B91C1C}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:Rubik,Tahoma,system-ui,sans-serif;font-size:14.5px;line-height:1.6}
+header{background:var(--navy);color:#fff;border-bottom:3px solid var(--gold)}header .in{max-width:1360px;margin:0 auto;padding:14px 18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+header h1{margin:0;font-size:20px}header .k{font-family:Montserrat,Arial;font-size:11px;letter-spacing:.14em;color:var(--gold2)}header .sp{margin-inline-start:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+header a{color:#D9C9A4;text-decoration:none;font-size:13px;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:4px 12px}
+main{max-width:1360px;margin:0 auto;padding:18px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.kpi{background:var(--navy);color:#fff;border-radius:14px;padding:14px;text-align:center}.kpi b{display:block;font-size:30px;font-family:Montserrat,Arial;color:var(--gold2)}.kpi span{font-size:12px;color:#D9C9A4}.kpi.l{background:#fff;color:var(--fg);border:1px solid var(--line)}.kpi.l b{color:var(--navy)}
+.btn{border:1px solid var(--gold);background:var(--navy);color:#fff;border-radius:999px;padding:8px 16px;font:inherit;font-weight:700;cursor:pointer}.btn.gold{background:linear-gradient(180deg,#F2D584,#D4A84C);color:var(--navy)}.btn.ghost{background:#fff;color:var(--fg);border-color:var(--line)}.btn.sm{padding:4px 10px;font-size:12px}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--navy);color:#fff;padding:8px;text-align:right;position:sticky;top:0}td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:middle}tr:hover td{background:#FBF8F2}
+.bar{height:10px;background:#F3EBDA;border-radius:5px;overflow:hidden;min-width:70px}.bar i{display:block;height:100%;background:var(--good)}.bar.w i{background:var(--warn)}.bar.b i{background:var(--bad)}
+.days{display:flex;gap:4px}.days span{width:30px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;background:#CBD5E1}.days span.g{background:var(--good)}.days span.w{background:var(--warn)}.days span.b{background:var(--bad)}.days span.z{background:#CBD5E1;color:#334155}
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.grp{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.g{border:1px solid var(--line);border-radius:12px;padding:12px}.g h4{margin:0 0 6px;color:var(--navy)}
+.login{max-width:420px;margin:60px auto;text-align:center}.login input{width:100%;text-align:center;font-size:22px;letter-spacing:.3em}
+.drawer{position:fixed;inset:0 0 0 auto;width:min(560px,100%);background:#fff;box-shadow:-20px 0 60px rgba(0,0,0,.25);z-index:50;overflow:auto;padding:18px;transform:translateX(-100%);transition:.25s}html[dir=rtl] .drawer{inset:0 auto 0 0}.drawer.on{transform:none}
+.chk{list-style:none;padding:0;margin:0;display:grid;gap:4px}.chk li{padding:6px 10px;border-radius:8px;background:#FBF8F2;font-size:13px}.chk li.ok{background:#ECFDF5}
+.note{color:var(--muted);font-size:13px}.warnbox{background:#FEF3C7;border:1px solid #FCD34D;border-radius:12px;padding:12px 14px}
+.chart{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:end;height:170px;padding:10px 4px 0}.chart div{background:linear-gradient(180deg,var(--gold2),var(--gold));border-radius:8px 8px 0 0;position:relative;min-height:4px}.chart div b{position:absolute;top:-22px;inset-inline:0;text-align:center;font-family:Montserrat,Arial;font-size:13px}.chart div span{position:absolute;bottom:-22px;inset-inline:0;text-align:center;font-size:11px;color:var(--muted)}
+@media print{header .sp,.tools,.btn{display:none}}
+</style>
+</head>
+<body>
+<header><div class="in"><div><div class="k">TRACK FORD · TRAINER CONSOLE</div><h1>لوحة المدرب — متابعة المتدربين والمجموعات</h1></div>
+<div class="sp"><a href="index.html">البوابة</a><a href="academy.html?all=1">الأكاديمية (كل الأيام)</a><a href="system.html">النظام</a><a href="navigator.html">المقيّم</a><button class="btn ghost sm" id="logout" hidden>خروج</button></div></div></header>
+<main id="main"></main>
+<div class="drawer" id="drawer"></div>
+<script src="tf-course.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s); const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const DAYS = window.TFC ? window.TFC.DAYS : [];
+  let PIN = sessionStorage.getItem('tf_trainer_pin') || '', DATA = null, FILTER = { g: '', q: '' }, timer = null;
+  const api = async (opt) => { const r = await fetch('/api/trainer', Object.assign({ headers: { 'x-trainer-pin': PIN, 'content-type': 'application/json' } }, opt || {})); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; };
+  function login() {
+    $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h2>دخول المدرب</h2><p class="note">أدخل الرقم السري للمدرب (TRAINER_PIN في إعدادات Vercel — الافتراضي 2026).</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><div style="margin-top:12px"><button class="btn gold" id="go">دخول</button></div><div class="note" id="msg" style="margin-top:8px"></div></div>`;
+    $('#go').onclick = async () => { PIN = $('#pin').value.trim(); const r = await api(); if (!r.ok) { $('#msg').textContent = r.status === 401 ? 'الرقم السري غير صحيح.' : 'تعذّر الاتصال بالخادم — تأكد من النشر على Vercel.'; return; } sessionStorage.setItem('tf_trainer_pin', PIN); localStorage.setItem('tf_unlock', '1'); DATA = r.j; render(); start(); };
+    $('#pin').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
+  }
+  const pct = u => (u.progress && u.progress.overall) || 0, cls = p => p >= 70 ? 'g' : p >= 35 ? 'w' : p > 0 ? 'b' : 'z';
+  const seen = u => u.progress ? new Date(u.progress.at) : (u.lastLogin ? new Date(u.lastLogin) : null);
+  const ago = d => { if (!d) return '—'; const m = Math.round((Date.now() - d) / 60000); return m < 2 ? 'الآن' : m < 60 ? `قبل ${m} د` : m < 1440 ? `قبل ${Math.round(m / 60)} س` : d.toLocaleDateString('ar-SA'); };
+  function render() {
+    const users = (DATA.users || []).slice().sort((a, b) => pct(b) - pct(a)); const cfg = DATA.config || {}; const t = window.TFC ? window.TFC.today() : 0;
+    const groups = [...new Set(users.map(u => u.group || 'عام'))].sort();
+    const f = users.filter(u => (!FILTER.g || (u.group || 'عام') === FILTER.g) && (!FILTER.q || (u.name + ' ' + (u.org || '') + ' ' + (u.phone || '')).includes(FILTER.q)));
+    const avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0;
+    const active = users.filter(u => seen(u) && Date.now() - seen(u) < 86400000).length;
+    const dayAvg = n => avg(users.map(u => +(((u.progress || {}).days || {})[n] || 0)));
+    $('#main').innerHTML = `
+      ${DATA.local ? '<div class="warnbox card">⚠️ قاعدة بيانات التسجيل غير مفعّلة بعد. فعّلها من Vercel → Storage → Upstash for Redis (خطوة واحدة) ليظهر هنا كل من سجّل وتقدّمه تلقائيًا. حتى ذلك الحين يمكن استيراد «كود التقدّم» من المتدربين أدناه.</div>' : ''}
+      <div class="kpis"><div class="kpi"><b>${users.length}</b><span>متدرب مسجّل</span></div><div class="kpi"><b>${active}</b><span>نشط خلال 24 ساعة</span></div><div class="kpi"><b>${avg(users.map(pct))}%</b><span>متوسط التقدّم</span></div><div class="kpi"><b>${groups.length}</b><span>مجموعات</span></div><div class="kpi l"><b>${t === 0 ? 'قبل' : t === 6 ? 'انتهت' : t}</b><span>يوم الدورة الحالي · تبدأ ${esc(cfg.start || (window.TFC ? window.TFC.cfg().start : ''))}</span></div></div>
+      <div class="card"><div class="tools"><b>متوسط التقدّم حسب اليوم</b><span class="note">يُحتسب من بنود كل يوم (محاضرات، أنشطة، ألعاب، أسئلة، ساحة الذكاء، النظام، المقيّم)</span></div><div class="chart">${DAYS.map(d => `<div style="height:${Math.max(3, dayAvg(d.n))}%"><b>${dayAvg(d.n)}%</b><span>اليوم ${d.n}</span></div>`).join('')}</div><div style="height:26px"></div></div>
+      <div class="card"><div class="tools"><b>المجموعات</b></div><div class="grp">${groups.map(g => { const gu = users.filter(u => (u.group || 'عام') === g); return `<div class="g"><h4>${esc(g)} <small class="note">(${gu.length})</small></h4><div class="bar ${cls(avg(gu.map(pct)))}"><i style="width:${avg(gu.map(pct))}%"></i></div><div class="note">متوسط ${avg(gu.map(pct))}% · أفضل: ${esc((gu.slice().sort((a, b) => pct(b) - pct(a))[0] || {}).name || '—')} · 🏆 نقاط التحدي: ${gu.reduce((a, u) => a + (+((((u.progress || {}).scores || {}).team || {})[g]) || 0), 0)}</div></div>`; }).join('') || '<span class="note">لا توجد مجموعات بعد.</span>'}</div></div>
+      <div class="card"><div class="tools"><b>المتدربون (${f.length})</b><select id="fg"><option value="">كل المجموعات</option>${groups.map(g => `<option ${FILTER.g === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select><input id="fq" placeholder="بحث بالاسم أو الجهة أو الجوال" value="${esc(FILTER.q)}"><span style="flex:1"></span><button class="btn ghost sm" id="csv">⬇ CSV</button><button class="btn ghost sm" id="print">🖨 طباعة</button><button class="btn sm" id="refresh">↻ تحديث</button></div>
+        <div style="overflow:auto;max-height:70vh"><table><thead><tr><th>#</th><th>الاسم</th><th>المجموعة</th><th>الجهة</th><th>الجوال</th><th>التقدّم</th><th>الأيام 1–5</th><th>أفضل اختبار</th><th>النضج</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
+        ${f.map((u, i) => { const p = pct(u), d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return `<tr><td>${i + 1}</td><td><b>${esc(u.name)}</b>${u.role ? `<br><small class="note">${esc(u.role)}</small>` : ''}</td><td>${esc(u.group || 'عام')}</td><td>${esc(u.org || (u.progress || {}).org || '')}</td><td dir="ltr">${esc(u.phone || '')}</td><td><div class="bar ${cls(p)}"><i style="width:${p}%"></i></div><small>${p}%</small></td><td><div class="days">${[1, 2, 3, 4, 5].map(n => `<span class="${cls(+d[n] || 0)}" title="اليوم ${n}: ${+d[n] || 0}%">${+d[n] || 0}</span>`).join('')}</div></td><td>${sc.examBest ? sc.examBest + '%' : '—'}<br><small class="note">${sc.examAttempts || 0} محاولة</small></td><td>${sc.maturity ? sc.maturity + '/5' : '—'}</td><td>${ago(seen(u))}</td><td><button class="btn ghost sm" data-u="${esc(u.id)}">تفاصيل</button></td></tr>`; }).join('') || '<tr><td colspan="11" class="note">لم يسجّل أحد بعد — شارك رابط المنصّة مع المتدربين.</td></tr>'}
+        </tbody></table></div></div>
+      <div class="card"><div class="tools"><b>إعدادات الدورة</b></div><div class="tools"><label>تاريخ بدء الدورة <input type="date" id="cStart" value="${esc(cfg.start || (window.TFC ? window.TFC.cfg().start : ''))}"></label><label>المجموعات (افصل بفاصلة) <input id="cGroups" style="min-width:320px" value="${esc((cfg.groups || (window.TFC ? window.TFC.cfg().groups : [])).join('، '))}"></label><button class="btn gold sm" id="cSave">حفظ</button><span class="note" id="cMsg"></span></div><p class="note">اليوم الظاهر للمتدربين يُحسب من تاريخ البدء: اليوم 1 = تاريخ البدء، وتُفتح الأيام تباعًا. رابط المدرب لفتح كل الأيام: <code>academy.html?all=1</code></p></div>
+      <div class="card"><div class="tools"><b>استيراد كود تقدّم (للوضع المحلي)</b></div><div class="tools"><input id="impCode" style="min-width:420px" placeholder="الصق كود التقدّم الذي أرسله المتدرب"><button class="btn sm" id="impGo">استيراد</button></div><div id="impList" class="note"></div></div>`;
+    $('#fg').onchange = e => { FILTER.g = e.target.value; render(); }; $('#fq').oninput = e => { FILTER.q = e.target.value; clearTimeout(timer); timer = setTimeout(render, 300); };
+    $('#refresh').onclick = refresh; $('#print').onclick = () => print();
+    $('#csv').onclick = () => { const rows = [['الاسم', 'المجموعة', 'الجهة', 'الجوال', 'البريد', 'التقدّم%', 'يوم1', 'يوم2', 'يوم3', 'يوم4', 'يوم5', 'أفضل اختبار', 'النضج', 'آخر نشاط']].concat(f.map(u => { const d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return [u.name, u.group, u.org, u.phone, u.email, pct(u), d[1] || 0, d[2] || 0, d[3] || 0, d[4] || 0, d[5] || 0, sc.examBest || '', sc.maturity || '', seen(u) ? seen(u).toISOString() : '']; })); const csv = '﻿' + rows.map(r => r.map(x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"').join(',')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'TrackFord_trainees.csv'; a.click(); };
+    $('#cSave').onclick = async () => { const config = { start: $('#cStart').value, groups: $('#cGroups').value.split(/[،,]/).map(s => s.trim()).filter(Boolean) }; localStorage.setItem('tf_course_cfg', JSON.stringify(config)); const r = await api({ method: 'POST', body: JSON.stringify({ config }) }); $('#cMsg').textContent = r.ok && !r.j.local ? 'حُفظت الإعدادات للجميع.' : 'حُفظت محليًا (قاعدة البيانات غير مفعّلة).'; if (r.ok) { DATA.config = Object.assign(DATA.config || {}, config); } };
+    document.querySelectorAll('[data-u]').forEach(b => b.onclick = () => drawer(users.find(u => u.id === b.dataset.u)));
+    $('#impGo').onclick = () => { try { const o = JSON.parse(decodeURIComponent(escape(atob($('#impCode').value.trim())))); const loc = JSON.parse(localStorage.getItem('tf_trainer_local') || '[]'); const i = loc.findIndex(x => x.id === o.id); if (i >= 0) loc[i] = o; else loc.push(o); localStorage.setItem('tf_trainer_local', JSON.stringify(loc)); DATA.users = mergeLocal(DATA.users); render(); } catch (e) { $('#impList').textContent = 'الكود غير صالح.'; } };
+  }
+  function mergeLocal(users) { const loc = JSON.parse(localStorage.getItem('tf_trainer_local') || '[]'); const ids = new Set(users.map(u => u.id)); return users.concat(loc.filter(x => !ids.has(x.id))); }
+  function drawer(u) {
+    if (!u) return; const d = $('#drawer'); const p = u.progress || {}; const it = p.items || {};
+    d.innerHTML = `<div class="tools"><h3 style="margin:0">${esc(u.name)}</h3><span style="flex:1"></span><button class="btn ghost sm" id="dClose">إغلاق</button></div>
+      <p class="note">${esc(u.group || 'عام')} · ${esc(u.org || p.org || '')} · <span dir="ltr">${esc(u.phone || '')}</span> · ${esc(u.email || '')}<br>سُجّل ${u.created ? new Date(u.created).toLocaleString('ar-SA') : '—'} · آخر مزامنة ${p.at ? new Date(p.at).toLocaleString('ar-SA') : '—'}</p>
+      <div class="kpis" style="margin-bottom:12px"><div class="kpi"><b>${pct(u)}%</b><span>التقدّم</span></div><div class="kpi"><b>${(p.scores || {}).examBest || 0}%</b><span>أفضل اختبار</span></div><div class="kpi"><b>${(p.scores || {}).quiz || 0}%</b><span>أسئلة المحاضرات</span></div><div class="kpi"><b>${(p.scores || {}).maturity || '—'}</b><span>نضج مؤسسته /5</span></div></div>
+      ${DAYS.map(day => `<h4 style="margin:12px 0 6px;color:var(--navy)">اليوم ${day.n} — ${esc(day.ar)} <small class="note">${+((p.days || {})[day.n]) || 0}%</small></h4><ul class="chk">${day.items.map(i => `<li class="${it[i.k] ? 'ok' : ''}">${it[i.k] ? '✅' : '⬜'} ${esc(i.t)}</li>`).join('')}</ul>`).join('')}
+      <h4 style="margin:12px 0 6px;color:var(--navy)">ساحة الذكاء</h4><p class="note">${Object.entries(((p.scores || {}).arena) || {}).map(([k, v]) => `${k}: ${v}%`).join(' · ') || '—'}</p>
+      ${DATA.local ? '' : `<button class="btn ghost sm" id="dDel" style="color:var(--bad)">حذف المتدرب</button>`}`;
+    d.classList.add('on'); $('#dClose').onclick = () => d.classList.remove('on');
+    const del = $('#dDel'); if (del) del.onclick = async () => { if (!confirm('حذف ' + u.name + ' نهائيًا؟')) return; await api({ method: 'POST', body: JSON.stringify({ del: u.id }) }); d.classList.remove('on'); refresh(); };
+  }
+  async function refresh() { const r = await api(); if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); } }
+  function start() { $('#logout').hidden = false; $('#logout').onclick = () => { sessionStorage.removeItem('tf_trainer_pin'); location.reload(); }; setInterval(refresh, 60000); }
+  (async () => { if (PIN) { const r = await api(); if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); return; } } login(); })();
+})();
+</script>
+</body>
+</html>
