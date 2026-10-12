@@ -84,6 +84,29 @@
 
   /* ───── التقدّم ───── */
   function dayProgress(d) { const items = d.items; const done = items.filter(i => { try { return !!i.chk(); } catch (e) { return false; } }).length; return { done, total: items.length, pct: Math.round(done / items.length * 100) }; }
+  /* ───── الوقت المستغرق في الدورة (نشط فقط) ───── */
+  const LS_T = 'tf_time';
+  const timeState = () => rd(LS_T, { sec: 0 }) || { sec: 0 };
+  function addTime(s) { const t = timeState(); t.sec = (t.sec || 0) + s; wr(LS_T, t); }
+  let _timeLast = Date.now();
+  function tickTime() { const now = Date.now(); if (typeof document !== 'undefined' && document.visibilityState === 'visible') { const dt = Math.min(60, (now - _timeLast) / 1000); if (dt > 0.5) addTime(dt); } _timeLast = now; }
+  try { setInterval(tickTime, 15000); document.addEventListener('visibilitychange', () => { _timeLast = Date.now(); }); } catch (e) {}
+
+  /* ───── النقاط (بحسب الأداء) ───── */
+  function computePoints(snap) {
+    const sc = snap.scores || {}; const c = rd(LS_C, {}) || {}; const done = c.done || {};
+    const arenaTotal = Object.values(sc.arena || {}).reduce((a, b) => a + (+b || 0), 0);
+    const builders = Object.keys(done).filter(k => /^build_/.test(k)).length;
+    let p = 0;
+    p += (snap.overall || 0) * 2;         // تقدّم الأيام (≤200)
+    p += (sc.examBest || 0) * 1.5;        // أفضل اختبار (≤150)
+    p += (sc.quiz || 0) * 1;              // أسئلة المحاضرات (≤100)
+    p += arenaTotal * 0.4;                // ساحة الذكاء (مجموع أفضل نتائج الألعاب)
+    p += builders * 25;                   // النماذج المبنية (مصمّمات)
+    p += (sc.maturity ? 40 : 0);          // إكمال تقييم النضج
+    return Math.round(p);
+  }
+
   function snapshot() {
     const days = {}; DAYS.forEach(d => { days[d.n] = dayProgress(d).pct; });
     const items = {}; DAYS.forEach(d => d.items.forEach(i => { try { items[i.k] = !!i.chk(); } catch (e) { items[i.k] = false; } }));
@@ -92,7 +115,12 @@
     const nav = rd('tf-grc-navigator-v1'); const m = nav && !nav.example ? Object.values(nav.a || {}).filter(Boolean) : [];
     const scores = { examBest: examBest(), examAttempts: examAttempts(), arena: (rd('grcpArena', {}) || {}).best || {}, team: (rd('grcpArena', {}) || {}).team || {}, maturity: m.length ? +(m.reduce((a, b) => a + b, 0) / m.length).toFixed(2) : 0, quiz: Math.round([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].reduce((a, n) => a + quizPct([n]), 0) / 10) };
     const org = (rd('tf_org_v1') || {}).name || (nav && nav.p && nav.p.name) || '';
-    return { days, overall, items, scores, org, at: Date.now(), today: t };
+    const snap = { days, overall, items, scores, org, at: Date.now(), today: t };
+    snap.timeSec = Math.round(timeState().sec || 0);
+    const doneC = (rd(LS_C, {}) || {}).done || {};
+    snap.builders = Object.keys(doneC).filter(k => /^build_/.test(k)).map(k => k.replace('build_', ''));
+    snap.points = computePoints(snap);
+    return snap;
   }
   let lastSync = 0, syncing = false;
   async function sync(force) {

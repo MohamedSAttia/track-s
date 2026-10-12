@@ -49,7 +49,7 @@
   const pick = a => a[Math.floor(Math.random() * a.length)];
 
   let ctx, host, CV, CX, cam = null, camVideo = null, mic = null, analyser = null, rec = null, chunks = [], recording = false, raf = null;
-  const ST = { mode: 'draw', clips: {}, msa: false, mouth: 0, blink: 0, nextBlink: 0, speaking: false, listening: false, sub: '', subWho: 'ai', lvls: {}, meter: {}, turn: 0, plan: [], idx: -1, probes: 0, awaiting: null, log: [], done: false, started: false, face: null, vol: 0, name: '', busy: false, voice: null };
+  const ST = { mode: 'draw', clips: {}, msa: true, mouth: 0, blink: 0, nextBlink: 0, speaking: false, listening: false, sub: '', subWho: 'ai', lvls: {}, meter: {}, turn: 0, plan: [], idx: -1, probes: 0, awaiting: null, log: [], done: false, started: false, face: null, vol: 0, name: '', busy: false, voice: null };
 
   /* ───── الصوت: اختيار أوضح صوت عربي متاح ───── */
   function pickVoice() {
@@ -59,15 +59,50 @@
     ar.sort((a, b) => { const sa = pref.findIndex(p => (a.name + a.lang).toLowerCase().includes(p)), sb = pref.findIndex(p => (b.name + b.lang).toLowerCase().includes(p)); return (sa < 0 ? 99 : sa) - (sb < 0 ? 99 : sb); });
     ST.voice = ar[0] || null; return ST.voice;
   }
+  /* تجزئة النص لجُمل قصيرة تُنطق بسلاسة (أهم علاج للكلام المتقطع) */
+  function splitChunks(text) {
+    const t = String(text).replace(/\s+/g, ' ').trim(); if (!t) return [];
+    const parts = t.split(/([\.!\?؟،؛:]+)\s*/).reduce((a, s, i, arr) => { if (i % 2 === 0) { const p = (s + (arr[i + 1] || '')).trim(); if (p) a.push(p); } return a; }, []);
+    const merged = []; let buf = '';
+    for (const p of parts) { if ((buf + ' ' + p).trim().length > 120 && buf) { merged.push(buf.trim()); buf = p; } else buf = buf ? buf + ' ' + p : p; }
+    if (buf.trim()) merged.push(buf.trim());
+    const out = [];
+    for (let c of merged) { while (c.length > 170) { let cut = c.lastIndexOf(' ', 170); if (cut < 90) cut = 170; out.push(c.slice(0, cut).trim()); c = c.slice(cut); } if (c.trim()) out.push(c.trim()); }
+    return out.filter(Boolean);
+  }
+  /* تنشيط محرك الصوت مع أول نقرة مستخدم (يمنع تأخّر/بتر أول جملة) */
+  let voiceWarm = false;
+  function warmUp() { if (voiceWarm || !window.speechSynthesis) return; voiceWarm = true; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.lang = 'ar-SA'; if (ST.voice) u.voice = ST.voice; speechSynthesis.speak(u); } catch (e) {} }
+  let resumeTimer = null;
   function speak(text) {
     return new Promise(res => {
       ST.sub = text; ST.subWho = 'ai';
       if (!window.speechSynthesis) { ST.speaking = true; setTimeout(() => { ST.speaking = false; res(); }, Math.max(1500, text.length * 55)); return; }
       try { speechSynthesis.cancel(); } catch (e) {}
-      const u = new SpeechSynthesisUtterance(ST.msa ? toMSA(text) : text); u.lang = 'ar-SA'; u.rate = 0.98; u.pitch = 0.95; if (ST.voice) u.voice = ST.voice;
-      let ended = false; const fin = () => { if (ended) return; ended = true; ST.speaking = false; res(); };
-      u.onstart = () => { ST.speaking = true; }; u.onend = fin; u.onerror = fin; u.onboundary = () => { ST.mouth = 1; };
-      speechSynthesis.speak(u); setTimeout(fin, Math.max(2500, text.length * 120)); // أمان
+      const chunks = splitChunks(ST.msa ? toMSA(text) : text);
+      if (!chunks.length) { res(); return; }
+      ST.speaking = true;
+      let i = 0, done = false;
+      const finishAll = () => { if (done) return; done = true; ST.speaking = false; clearInterval(resumeTimer); resumeTimer = null; res(); };
+      /* مكافحة توقّف Chrome بعد ~15ث: استئناف دوري */
+      clearInterval(resumeTimer);
+      resumeTimer = setInterval(() => { try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {} }, 4000);
+      const sayNext = () => {
+        if (done) return;
+        const idx = i;
+        if (idx >= chunks.length) { finishAll(); return; }
+        const ch = chunks[idx];
+        const u = new SpeechSynthesisUtterance(ch); u.lang = 'ar-SA'; u.rate = 0.95; u.pitch = 0.92; if (ST.voice) u.voice = ST.voice;
+        let handed = false; const next = () => { if (handed || done) return; handed = true; i = idx + 1; sayNext(); };
+        u.onstart = () => { ST.speaking = true; };
+        u.onboundary = () => { ST.mouth = Math.min(1, ST.mouth + 0.5); };
+        u.onend = next; u.onerror = next;
+        try { speechSynthesis.speak(u); } catch (e) { next(); return; }
+        /* مراقب احتياطي: ينتقل فقط لو توقف المحرك فعليًا (لا يبتر جملة جارية) */
+        const watchdog = () => { if (handed || done) return; if (!speechSynthesis.speaking && !speechSynthesis.pending) next(); else setTimeout(watchdog, 1200); };
+        setTimeout(watchdog, Math.max(2600, ch.length * 95));
+      };
+      sayNext();
     });
   }
 
@@ -162,6 +197,37 @@
     CX.save(); rr(x, y + nod, w, h, 26); CX.clip(); const vr = v.videoWidth / v.videoHeight || 1.33; let dw = w, dh = w / vr; if (dh < h) { dh = h; dw = h * vr; } CX.translate(x + w, 0); CX.scale(-1, 1); CX.drawImage(v, (w - dw) / 2, y + nod + (h - dh) / 2, dw, dh); CX.restore();
     CX.strokeStyle = ST.speaking ? '#E2B85A' : 'rgba(255,255,255,.35)'; CX.lineWidth = 4; rr(x, y + nod, w, h, 26); CX.stroke(); return true;
   }
+  /* ───── مقدّم بصورة حقيقية: بورتريه مؤطّر بإيحاء كلام (حركة فك خفيفة + إيماءة + رمش) ───── */
+  function drawPhotoPresenter(cx, cy, t) {
+    const im = ST.face; if (!im || !im.complete || !im.naturalWidth) return false;
+    const w = 440, h = 500, x = cx - w / 2, y = cy - h / 2 - 16;
+    const nod = ST.speaking ? Math.sin(t / 270) * 2.4 : Math.sin(t / 1700) * 1.1;
+    const breathe = 1 + Math.sin(t / 1900) * 0.006;
+    const vr = im.naturalWidth / im.naturalHeight;
+    // ملاءمة غطاء (cover)
+    let dw = w, dh = w / vr; if (dh < h) { dh = h; dw = h * vr; } dw *= breathe; dh *= breathe;
+    const ix = x + (w - dw) / 2, iy = y + nod + (h - dh) / 2;
+    const splitSrc = 0.60, splitDst = iy + dh * 0.60;          // خط الفك ~60% من الصورة
+    const open = ST.speaking ? (1.5 + ST.mouth * 7.5) : 0;      // فتح الفم مع الصوت
+    CX.save();
+    // ظل وإطار
+    CX.shadowColor = 'rgba(0,0,0,.4)'; CX.shadowBlur = 26; CX.shadowOffsetY = 12;
+    CX.fillStyle = '#0A1B3D'; rr(x - 7, y - 7, w + 14, h + 14, 30); CX.fill();
+    CX.shadowBlur = 0; CX.shadowOffsetY = 0;
+    rr(x, y + nod, w, h, 26); CX.clip();
+    // الجزء العلوي ثابت (العينان/الأنف)
+    CX.drawImage(im, 0, 0, im.naturalWidth, im.naturalHeight * splitSrc, ix, iy, dw, dh * splitSrc);
+    // الجزء السفلي (الفك) ينزل قليلًا عند الكلام → إيحاء النطق
+    CX.drawImage(im, 0, im.naturalHeight * (splitSrc - 0.015), im.naturalWidth, im.naturalHeight * (0.40 + 0.015), ix, splitDst + open, dw, dh * (0.40 + 0.015));
+    // ظل ناعم عند خط الفتح يخفي الوصلة ويعزّز الإيحاء
+    if (open > 2) { const gg = CX.createLinearGradient(0, splitDst, 0, splitDst + open + 4); gg.addColorStop(0, 'rgba(30,10,10,.35)'); gg.addColorStop(1, 'rgba(30,10,10,0)'); CX.fillStyle = gg; CX.fillRect(ix, splitDst, dw, open + 4); }
+    // رمشة خفيفة (شريط شفاف يمر على منطقة العينين)
+    if (ST.blink > 0.25) { CX.fillStyle = 'rgba(0,0,0,' + (ST.blink * 0.18) + ')'; CX.fillRect(ix, iy + dh * 0.26, dw, dh * 0.10); }
+    CX.restore();
+    // توهّج الإطار أثناء الكلام
+    CX.strokeStyle = ST.speaking ? '#E2B85A' : 'rgba(255,255,255,.4)'; CX.lineWidth = 4; rr(x, y + nod, w, h, 26); CX.stroke();
+    return true;
+  }
   /* ───── الرسم ───── */
   function rr(x, y, w, h, r) { CX.beginPath(); CX.moveTo(x + r, y); CX.arcTo(x + w, y, x + w, y + h, r); CX.arcTo(x + w, y + h, x, y + h, r); CX.arcTo(x, y + h, x, y, r); CX.arcTo(x, y, x + w, y, r); CX.closePath(); }
   function wrap(text, maxW, font) { CX.font = font; const words = String(text).split(/\s+/), lines = []; let cur = ''; words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (CX.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }); if (cur) lines.push(cur); return lines; }
@@ -211,7 +277,10 @@
     if (t > ST.nextBlink) { ST.blink = Math.min(1, ST.blink + 0.25); if (ST.blink >= 1) ST.nextBlink = t + 2500 + Math.random() * 3000; } else ST.blink = Math.max(0, ST.blink - 0.2);
     // فم
     if (ST.speaking) { ST.mouth = Math.max(0, ST.mouth - 0.12) + (Math.random() < 0.35 ? Math.random() * 0.8 : 0); ST.mouth = Math.min(1, ST.mouth); } else ST.mouth = Math.max(0, ST.mouth - 0.15);
-    if (!(ST.mode === 'video' && drawVideoPresenter(W * 0.68, H * 0.46, t))) drawPersona(W * 0.68, H * 0.46, 1.25, t);
+    let drew = false;
+    if (ST.mode === 'video') drew = drawVideoPresenter(W * 0.68, H * 0.46, t);
+    else if (ST.mode === 'photo') drew = drawPhotoPresenter(W * 0.68, H * 0.46, t);
+    if (!drew) drawPersona(W * 0.68, H * 0.46, 1.25, t);
     // بطاقة اسم المستشار
     CX.fillStyle = 'rgba(255,255,255,.95)'; rr(W * 0.68 - 170, H * 0.46 + 232, 340, 54, 12); CX.fill(); CX.fillStyle = '#0A1B3D'; CX.font = '700 20px Rubik, Tahoma'; CX.textAlign = 'center'; CX.fillText('سعود — مستشار GRC الذكي', W * 0.68, H * 0.46 + 240); CX.fillStyle = '#5B6476'; CX.font = '500 12px Rubik, Tahoma'; CX.fillText(ST.speaking ? '🔊 يتحدث' : ST.listening ? '👂 يستمع إليك' : 'جاهز', W * 0.68, H * 0.46 + 264);
     // مقياس النضج
@@ -256,15 +325,15 @@
     ctx = c; host = h;
     host.innerHTML = `<div class="lv-wrap"><div class="lv-main"><canvas id="lvCanvas" width="1280" height="720" aria-label="المقابلة الحية"></canvas>
       <div class="lv-ctl"><button class="btn gold" id="lvStart">▶ ابدأ المقابلة</button><button class="btn" id="lvRec">⏺ تسجيل المقابلة</button><button class="btn ghost" id="lvCamBtn">📷 تشغيل الكاميرا</button><button class="btn ghost" id="lvStop">⏹ إنهاء</button><span class="note" id="lvCam">الكاميرا غير مفعّلة</span></div>
-      <div class="lv-pres"><b>المقدّم:</b> <button class="btn ghost" data-mode="draw">🧑‍💼 شخصية مرسومة</button><button class="btn ghost" data-mode="photo">🖼 صورة حقيقية</button><button class="btn ghost" data-mode="video">🎥 فيديو حقيقي</button> <label class="btn ghost" style="cursor:pointer">رفع صورة<input type="file" id="lvFace" accept="image/*" hidden></label><button class="btn ghost" id="lvRecTalk">⏺ سجّل مقطع التحدث (8 ث)</button><button class="btn ghost" id="lvRecIdle">⏺ سجّل مقطع الاستماع (8 ث)</button><label class="btn ghost" style="cursor:pointer">رفع مقطع تحدث<input type="file" id="lvUpTalk" accept="video/*" hidden></label><label class="btn ghost" style="cursor:pointer">رفع مقطع استماع<input type="file" id="lvUpIdle" accept="video/*" hidden></label><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="lvMsa" style="width:auto"> نطق بالفصحى (أوضح مع أصوات المتصفح)</label><span class="note" id="lvClipSt"></span></div>
-      <div class="note">💡 لمقدّم يبدو شخصًا حقيقيًا: اختر «فيديو حقيقي» وسجّل مقطعين من كاميرتك (8 ثوانٍ تتكلّم بصمت + 8 ثوانٍ تستمع وتومئ) — تُحفظ في المتصفح ويُعرض مقطع التحدث كلما نطق المستشار ومقطع الاستماع عندما يسمعك.</div>
+      <div class="lv-pres"><b>المقدّم:</b> <button class="btn ghost" data-mode="draw">🧑‍💼 شخصية مرسومة</button><button class="btn ghost" data-mode="photo">🖼 صورة حقيقية</button><button class="btn ghost" data-mode="video">🎥 فيديو حقيقي</button> <label class="btn ghost" style="cursor:pointer">رفع صورة<input type="file" id="lvFace" accept="image/*" hidden></label><button class="btn ghost" id="lvRecTalk">⏺ سجّل مقطع التحدث (8 ث)</button><button class="btn ghost" id="lvRecIdle">⏺ سجّل مقطع الاستماع (8 ث)</button><label class="btn ghost" style="cursor:pointer">رفع مقطع تحدث<input type="file" id="lvUpTalk" accept="video/*" hidden></label><label class="btn ghost" style="cursor:pointer">رفع مقطع استماع<input type="file" id="lvUpIdle" accept="video/*" hidden></label><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="lvMsa" checked style="width:auto"> نطق واضح (فصحى صوتيًا — الترجمة تبقى باللهجة)</label><span class="note" id="lvClipSt"></span></div>
+      <div class="note">💡 لمقدّم بوجه حقيقي: ارفع صورة شخص واختر «صورة حقيقية» — تظهر كبورتريه وتتحرّك ملامحه (فك/إيماءة/رمش) أثناء الكلام. وللأكثر واقعية اختر «فيديو حقيقي» وسجّل مقطعين من كاميرتك (8 ثوانٍ تتكلّم بصمت + 8 ثوانٍ تستمع وتومئ) يُحفظان في المتصفح: يُعرض مقطع التحدث كلما نطق المستشار ومقطع الاستماع عندما يسمعك.</div>
       <div class="lv-in"><span id="lvMic" class="lv-mic">🎙️</span><input id="lvIn" placeholder="تكلّم بصوتك… أو اكتب هنا إن لم يعمل المايك"><button class="btn" id="lvSend" disabled>إرسال</button></div>
       <div class="note">يعمل التعرف الصوتي والصوت العربي بأفضل جودة في Microsoft Edge على ويندوز (صوت «Naayf» السعودي) وفي Chrome على أندرويد. يمكنك دائمًا الكتابة بدل الكلام.</div></div>
       <div class="card lv-side"><h3 style="margin:0 0 8px">نص المقابلة</h3><div class="lv-log" id="lvLog"><div class="note">اضغط «ابدأ المقابلة» — سعود سيرحّب بك ويبدأ الأسئلة.</div></div></div></div>`;
     CV = host.querySelector('#lvCanvas'); CX = CV.getContext('2d');
     if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-    host.querySelector('#lvStart').onclick = async () => { if (ST.started) return; if (!cam) await startCam(); run(); };
-    host.querySelector('#lvCamBtn').onclick = startCam;
+    host.querySelector('#lvStart').onclick = async () => { if (ST.started) return; warmUp(); if (!cam) await startCam(); run(); };
+    host.querySelector('#lvCamBtn').onclick = () => { warmUp(); startCam(); };
     host.querySelector('#lvRec').onclick = () => recording ? stopRec() : startRec();
     host.querySelector('#lvStop').onclick = () => { try { speechSynthesis.cancel(); } catch (e) {} ST.started = false; ST.listening = false; try { SRi && SRi.stop(); } catch (e) {} if (recording) stopRec(); ST.sub = 'انتهت المقابلة.'; };
     host.querySelector('#lvFace').onchange = async e => { const f = e.target.files[0]; if (!f) return; const im = new Image(); im.onload = () => { ST.face = im; ST.mode = 'photo'; updModeUI(); }; im.src = URL.createObjectURL(f); await DB.set('face', f); };

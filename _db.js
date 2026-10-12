@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
 const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
 export const SECRET = process.env.LINK_SECRET || 'trackford-grc-default-secret';
-export const TRAINER_PIN = process.env.TRAINER_PIN || '2026';
+export const TRAINER_PIN = process.env.TRAINER_PIN || '275819';
 export const enabled = () => !!(URL_ && TOKEN);
 
 export async function cmd(...args) {

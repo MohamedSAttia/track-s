@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     const raw = await cmd('HGET', 'tf:users', id); if (!raw) return res.status(404).json({ error: 'not_found' });
     const u = JSON.parse(raw); if (u.tok !== t) return res.status(401).json({ error: 'bad_token' });
     const s = b.snapshot || {};
-    const snap = { at: Date.now(), days: s.days || {}, overall: Math.max(0, Math.min(100, +s.overall || 0)), items: s.items || {}, scores: s.scores || {}, org: String(s.org || '').slice(0, 120), ua: String(req.headers['user-agent'] || '').slice(0, 80) };
+    const snap = { at: Date.now(), days: s.days || {}, overall: Math.max(0, Math.min(100, +s.overall || 0)), items: s.items || {}, scores: s.scores || {}, points: Math.max(0, Math.min(100000, +s.points || 0)), timeSec: Math.max(0, Math.min(2000000, +s.timeSec || 0)), builders: Array.isArray(s.builders) ? s.builders.slice(0, 20).map(x => String(x).slice(0, 24)) : [], org: String(s.org || '').slice(0, 120), ua: String(req.headers['user-agent'] || '').slice(0, 80) };
     await setJ('tf:progress:' + id, snap);
     await cmd('HSET', 'tf:seen', id, String(Date.now()));
     return res.status(200).json({ ok: true, at: snap.at });
