@@ -14,49 +14,49 @@
   const L = (ar, en) => EN() ? en : ar;
 
   /* ───── تعريف الدورة ───── */
-  const DEFAULT_START = '2026-10-11';
+  /* لا يوجد تاريخ بدء افتراضي — النظام مفتوح لأي تاريخ ما لم يحدّد المدرب تاريخًا */
   const DAYS = [
-    { n: 1, ar: 'المقدمة والمفاهيم الأساسية', en: 'Introduction & Key Concepts', lectures: [1, 2], col: '#EA580C', items: [
-      { k: 'lec1', te: 'Lecture 1 — Introduction to GRC & Principled Performance', t: 'المحاضرة 1 — مقدمة في GRC والأداء المنضبط', href: A + '#/lecture/1', chk: () => lecRead(1) },
+    { n: 1, ar: 'المقدمة والمبادئ الأساسية والمفاهيم الأساسية (ج1)', en: 'Introduction, Principles & Key Concepts (Part 1)', lectures: [1], col: '#EA580C', items: [
+      { k: 'lec1', te: 'Lecture 1 — Introduction, Principled Performance & core principles', t: 'المحاضرة 1 — المقدمة والأداء المنضبط والمبادئ الأساسية', href: A + '#/lecture/1', chk: () => lecRead(1) },
       { k: 'ws1', te: 'Applied workshop: initial diagnosis of your organisation', t: 'النشاط التطبيقي: التشخيص الأولي لمنظمتك', href: A + '#/lecture/1/act', chk: () => { const d = rd('grcpD1v1'); return !!(d && d.org && d.org.name && Object.keys(d.cause || {}).length >= 2); } },
       { k: 'game1', te: "Protector's Decisions game (Lecture 1)", t: 'لعبة قرارات الحامي (المحاضرة 1)', href: A + '#/lecture/1', chk: () => gameDone(1) },
-      { k: 'lec2', te: 'Lecture 2 — Governance, Management & Assurance', t: 'المحاضرة 2 — الحوكمة والإدارة والضمان', href: A + '#/lecture/2', chk: () => lecRead(2) },
-      { k: 'q1', te: 'Lectures 1–2 practice questions (≥60%)', t: 'أسئلة المحاضرتين 1 و2 (60% على الأقل)', href: A + '#/lecture/2/quiz', chk: () => quizPct([1, 2]) >= 60 },
+      { k: 'q1', te: 'Lecture 1 practice questions (≥60%)', t: 'أسئلة المحاضرة 1 (60% على الأقل)', href: A + '#/lecture/1/quiz', chk: () => quizPct([1]) >= 60 },
       { k: 'ar1', te: 'AI Arena: element classification race', t: 'ساحة الذكاء: سباق تصنيف العناصر', href: A + '#/arena/classify', chk: () => arenaBest('classify') > 0 },
       { k: 'nav1', te: 'AI Navigator: organisation profile + 20-element assessment', t: 'المقيّم الذكي: ملف مؤسستك + استبيان العناصر العشرين', href: N, chk: () => { const n = rd('tf-grc-navigator-v1'); return !!(n && !n.example && n.p && n.p.name && Object.keys(n.a || {}).length >= 20); } }] },
-    { n: 2, ar: 'مكوّن الدراسة + مكوّن المواءمة', en: 'LEARN + ALIGN', lectures: [3, 4, 5], col: '#0D9488', items: [
+    { n: 2, ar: 'المفاهيم الأساسية (ج2)', en: 'Key Concepts (Part 2)', lectures: [2], col: '#D97706', items: [
+      { k: 'lec2', te: 'Lecture 2 — Governance, Management, Assurance & the capability model', t: 'المحاضرة 2 — الحوكمة والإدارة والضمان ونموذج القدرات', href: A + '#/lecture/2', chk: () => lecRead(2) },
+      { k: 'q2', te: 'Lecture 2 practice questions (≥60%)', t: 'أسئلة المحاضرة 2 (60% على الأقل)', href: A + '#/lecture/2/quiz', chk: () => quizPct([2]) >= 60 },
+      { k: 'armatch', te: 'AI Arena: term matching + oral examiner', t: 'ساحة الذكاء: مطابقة المصطلحات + الممتحن الشفهي', href: A + '#/arena/match', chk: () => arenaBest('match') > 0 || arenaBest('viva') > 0 },
+      { k: 'sys2', te: 'GRC System: organisation profile + baseline assessment', t: 'نظام التطبيق: ملف المنظمة + التقييم المبدئي', href: S, chk: () => { const s = rd('alsaeedGRC_v1'); return !!(s && s.org && s.org.name && s.baseline && s.baseline.tp); } }] },
+    { n: 3, ar: 'مكوّن الدراسة والمواءمة', en: 'LEARN + ALIGN', lectures: [3, 4, 5], col: '#0D9488', items: [
       { k: 'lec3', te: 'Lecture 3 — LEARN component', t: 'المحاضرة 3 — مكوّن الدراسة LEARN', href: A + '#/lecture/3', chk: () => lecRead(3) },
       { k: 'lec4', te: 'Lecture 4 — ALIGN (1)', t: 'المحاضرة 4 — المواءمة (1)', href: A + '#/lecture/4', chk: () => lecRead(4) },
       { k: 'lec5', te: 'Lecture 5 — ALIGN (2)', t: 'المحاضرة 5 — المواءمة (2)', href: A + '#/lecture/5', chk: () => lecRead(5) },
       { k: 'ws2', te: 'Applied workshops for lectures 3–5 (at least two)', t: 'الأنشطة التطبيقية للمحاضرات 3–5 (نشاطان على الأقل)', href: A + '#/lecture/3/act', chk: () => [3, 4, 5].filter(wsDone).length >= 2 },
+      { k: 'bldobj', te: 'Builder: SMART objective → KPI/KRI/KCI', t: 'المصمّم: هدف SMART ← مؤشرات الأداء والمخاطر والامتثال', href: A + '#/builders/objective', chk: () => !!(st().done || {})['build_objective'] },
       { k: 'game2', te: "Protector's Decisions game (lecture 3 or 4)", t: 'لعبة قرارات الحامي (محاضرة 3 أو 4)', href: A + '#/lecture/3', chk: () => gameDone(3) || gameDone(4) || gameDone(5) },
-      { k: 'q2', te: 'Lectures 3–5 practice questions (≥60%)', t: 'أسئلة المحاضرات 3–5 (60% على الأقل)', href: A + '#/lecture/4/quiz', chk: () => quizPct([3, 4, 5]) >= 60 },
+      { k: 'q3', te: 'Lectures 3–5 practice questions (≥60%)', t: 'أسئلة المحاضرات 3–5 (60% على الأقل)', href: A + '#/lecture/4/quiz', chk: () => quizPct([3, 4, 5]) >= 60 },
       { k: 'ar2', te: 'AI Arena: incident simulator', t: 'ساحة الذكاء: محاكي الحوادث', href: A + '#/arena/incident', chk: () => arenaBest('incident') > 0 },
-      { k: 'sys2', te: 'GRC System: profile + baseline + two LEARN/ALIGN tools', t: 'نظام التطبيق: ملف المنظمة + التقييم المبدئي + أداتان من الدراسة/المواءمة', href: S, chk: () => { const s = rd('alsaeedGRC_v1'); return !!(s && s.org && s.org.name && s.baseline && s.baseline.tp && Object.keys(s.tools || {}).length >= 2); } }] },
-    { n: 3, ar: 'مكوّن التنفيذ', en: 'PERFORM', lectures: [6, 7], col: '#1E40AF', items: [
+      { k: 'sys3', te: 'GRC System: two LEARN/ALIGN tools', t: 'نظام التطبيق: أداتان من الدراسة/المواءمة', href: S, chk: () => { const s = rd('alsaeedGRC_v1'); return !!(s && Object.keys(s.tools || {}).length >= 2); } }] },
+    { n: 4, ar: 'مكوّن التنفيذ', en: 'PERFORM', lectures: [6, 7], col: '#1E40AF', items: [
       { k: 'lec6', te: 'Lecture 6 — PERFORM (1): controls, policies, communication, education', t: 'المحاضرة 6 — التنفيذ (1): الضوابط والسياسات والتواصل والتعليم', href: A + '#/lecture/6', chk: () => lecRead(6) },
       { k: 'lec7', te: 'Lecture 7 — PERFORM (2): incentives, notification, inquiry, response', t: 'المحاضرة 7 — التنفيذ (2): الحوافز والإخطار والاستقصاء والاستجابة', href: A + '#/lecture/7', chk: () => lecRead(7) },
       { k: 'ws3', te: 'Applied workshops for lectures 6 and 7', t: 'النشاطان التطبيقيان للمحاضرتين 6 و7', href: A + '#/lecture/6/act', chk: () => wsDone(6) && wsDone(7) },
+      { k: 'bldiacm', te: 'Builders: IACM bow-tie + lines of accountability', t: 'المصمّمات: نموذج IACM + خطوط المساءلة', href: A + '#/builders/iacm', chk: () => { const dn = (st().done || {}); return !!(dn['build_iacm'] || dn['build_loa'] || dn['build_total']); } },
       { k: 'game3', te: "Protector's Decisions game (lecture 6 or 7)", t: 'لعبة قرارات الحامي (محاضرة 6 أو 7)', href: A + '#/lecture/6', chk: () => gameDone(6) || gameDone(7) },
-      { k: 'q3', te: 'Lectures 6–7 practice questions (≥60%)', t: 'أسئلة المحاضرتين 6 و7 (60% على الأقل)', href: A + '#/lecture/6/quiz', chk: () => quizPct([6, 7]) >= 60 },
+      { k: 'q4', te: 'Lectures 6–7 practice questions (≥60%)', t: 'أسئلة المحاضرتين 6 و7 (60% على الأقل)', href: A + '#/lecture/6/quiz', chk: () => quizPct([6, 7]) >= 60 },
       { k: 'ar3', te: 'AI Arena: oral examiner + who is accountable?', t: 'ساحة الذكاء: الممتحن الشفهي + من المسؤول؟', href: A + '#/arena/viva', chk: () => arenaBest('viva') > 0 || arenaBest('lines') > 0 },
-      { k: 'sys3', te: 'GRC System: 5 tools completed (incl. PERFORM)', t: 'نظام التطبيق: 5 أدوات مكتملة (منها أدوات التنفيذ)', href: S, chk: () => { const s = rd('alsaeedGRC_v1'); return !!(s && Object.keys(s.tools || {}).length >= 5); } }] },
-    { n: 4, ar: 'مكوّن المراجعة + تطبيق شامل', en: 'REVIEW + integrated application', lectures: [8, 9], col: '#059669', items: [
+      { k: 'sys4', te: 'GRC System: 5 tools completed (incl. PERFORM)', t: 'نظام التطبيق: 5 أدوات مكتملة (منها أدوات التنفيذ)', href: S, chk: () => { const s = rd('alsaeedGRC_v1'); return !!(s && Object.keys(s.tools || {}).length >= 5); } }] },
+    { n: 5, ar: 'مكوّن المراجعة', en: 'REVIEW', lectures: [8, 9, 10], col: '#059669', items: [
       { k: 'lec8', te: 'Lecture 8 — REVIEW component', t: 'المحاضرة 8 — مكوّن المراجعة REVIEW', href: A + '#/lecture/8', chk: () => lecRead(8) },
       { k: 'lec9', te: 'Lecture 9 — Integration: protectors, disciplines & value', t: 'المحاضرة 9 — التكامل: الحُماة والتخصصات والقيمة', href: A + '#/lecture/9', chk: () => lecRead(9) },
       { k: 'ws4', te: 'Applied workshops for lectures 8 and 9', t: 'النشاطان التطبيقيان للمحاضرتين 8 و9', href: A + '#/lecture/8/act', chk: () => wsDone(8) && wsDone(9) },
-      { k: 'q4', te: 'Lectures 8–9 practice questions (≥60%)', t: 'أسئلة المحاضرتين 8 و9 (60% على الأقل)', href: A + '#/lecture/8/quiz', chk: () => quizPct([8, 9]) >= 60 },
+      { k: 'q5', te: 'Lectures 8–9 practice questions (≥60%)', t: 'أسئلة المحاضرتين 8 و9 (60% على الأقل)', href: A + '#/lecture/8/quiz', chk: () => quizPct([8, 9]) >= 60 },
       { k: 'ar4', te: 'AI Arena: case analyst + order the steps', t: 'ساحة الذكاء: محلّل الحالة الواقعية + رتّب الخطوات', href: A + '#/arena/case', chk: () => arenaBest('case') > 0 || arenaBest('order') > 0 },
-      { k: 'sim4', te: 'Navigator: live interview / assessment simulation video', t: 'المقيّم: المقابلة الحية / فيديو محاكاة التقييم', href: N + '#sim', chk: () => !!(st().done || {}).sim },
-      { k: 'sys4', te: 'GRC System: post-assessment + full report', t: 'نظام التطبيق: التقييم البعدي + التقرير الشامل', href: S, chk: () => { const s = rd('alsaeedGRC_v1'); return !!(s && ((s.after && s.after.tp) || Object.keys(s.tools || {}).length >= 8)); } }] },
-    { n: 5, ar: 'مراجعة نهائية + مشاريع المجموعات + الاختبار', en: 'Final review · group projects · exam', lectures: [10], col: '#B01B2E', items: [
-      { k: 'lec10', te: 'Lecture 10 — Comprehensive review & exam strategy', t: 'المحاضرة 10 — المراجعة الشاملة واستراتيجية الاختبار', href: A + '#/lecture/10', chk: () => lecRead(10) },
-      { k: 'ex1', te: 'First full mock exam (100 questions)', t: 'الاختبار التجريبي الكامل الأول (100 سؤال)', href: A + '#/exam', chk: () => examAttempts() >= 1 },
-      { k: 'ex2', te: 'Second mock exam with 75% or more', t: 'اختبار تجريبي ثانٍ بنتيجة 75% فأعلى', href: A + '#/exam', chk: () => examBest() >= 75 },
-      { k: 'systest', te: 'System comprehensive test (100 questions)', t: 'اختبار النظام الشامل (100 سؤال)', href: S, chk: () => { const h = rd('alsaeedExam_v1'); return !!(h && Object.keys(h).some(k => k.startsWith('full') && (h[k] || []).length)); } },
-      { k: 'ar5', te: 'AI Arena: team challenge', t: 'ساحة الذكاء: تحدي المجموعات', href: A + '#/arena/team', chk: () => arenaBest('team') > 0 },
-      { k: 'proj', te: 'Group project discussion (mark manually after presenting)', t: 'مناقشة مشروع المجموعة (يُعلَّم يدويًا بعد العرض)', href: A + '#/course', manual: true, chk: () => !!(st().done || {}).proj },
-      { k: 'real', te: 'Book the real GRCP exam (mark manually)', t: 'حجز موعد الاختبار الحقيقي GRCP (يُعلَّم يدويًا)', href: 'https://www.oceg.org/grcp-certification/', manual: true, chk: () => !!(st().done || {}).real }] }];
+      { k: 'sim5', te: 'Navigator: live interview / assessment simulation video', t: 'المقيّم: المقابلة الحية / فيديو محاكاة التقييم', href: N + '#sim', chk: () => !!(st().done || {}).sim },
+      { k: 'sys5', te: 'GRC System: post-assessment + full report', t: 'نظام التطبيق: التقييم البعدي + التقرير الشامل', href: S, chk: () => { const s = rd('alsaeedGRC_v1'); return !!(s && ((s.after && s.after.tp) || Object.keys(s.tools || {}).length >= 8)); } },
+      { k: 'ex2', te: 'Mock exam with 75% or more', t: 'اختبار تجريبي بنتيجة 75% فأعلى', href: A + '#/exam', chk: () => examBest() >= 75 },
+      { k: 'proj', te: 'Group project discussion (mark manually after presenting)', t: 'مناقشة مشروع المجموعة (يُعلَّم يدويًا بعد العرض)', href: A + '#/course', manual: true, chk: () => !!(st().done || {}).proj }] }];
 
   /* ───── كواشف التقدّم من مخازن الوحدات ───── */
   const st = () => rd(LS_C, { done: {}, seen: {} });
@@ -69,10 +69,12 @@
   const examBest = () => Math.max(0, ...(rd('grcpHist', []) || []).filter(h => h.n >= 90).map(h => +h.pct || 0));
 
   /* ───── الزمن واليوم الحالي ───── */
-  function cfg() { return Object.assign({ start: DEFAULT_START, groups: ['المجموعة 1', 'المجموعة 2', 'المجموعة 3', 'المجموعة 4'] }, rd(LS_CFG, {})); }
-  function dayIndex(d) { const s = new Date(cfg().start + 'T00:00:00'); const now = d || new Date(); const diff = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - s) / 86400000); return diff + 1; }
-  function today() { const i = dayIndex(); return i < 1 ? 0 : i > 5 ? 6 : i; }
-  const unlocked = n => !!(rd('tf_unlock') || (user() && user().trainer)) || n <= Math.max(1, today());
+  function cfg() { return Object.assign({ start: '', groups: ['المجموعة 1', 'المجموعة 2', 'المجموعة 3', 'المجموعة 4'] }, rd(LS_CFG, {})); }
+  /* النظام يعمل لأي تاريخ: افتراضيًا «مفتوح» بلا جدول زمني. يفعّل المدرب الجدول اليومي بتحديد تاريخ بدء في لوحته. */
+  const scheduled = () => !!(cfg().start);
+  function dayIndex(d) { if (!scheduled()) return 1; const s = new Date(cfg().start + 'T00:00:00'); const now = d || new Date(); const diff = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - s) / 86400000); return diff + 1; }
+  function today() { if (!scheduled()) return 0; const i = dayIndex(); return i < 1 ? 0 : i > 5 ? 6 : i; }
+  const unlocked = n => true;   /* كل الأيام متاحة دائمًا — لا قفل حسب التاريخ */
   function dayOfLecture(n) { const d = DAYS.find(d => d.lectures.includes(n)); return d ? d.n : 5; }
 
   /* ───── المستخدم ───── */
@@ -176,25 +178,25 @@
   /* ───── شريحة المستخدم (تُعرض في شريط التكامل) ───── */
   function chip() {
     const u = user(), t = today(), snap = snapshot();
-    const dayTxt = t === 0 ? L('قبل بدء الدورة', 'Before the course') : t === 6 ? L('ما بعد الدورة', 'After the course') : L(`اليوم ${t} · ${DAYS[t - 1].ar}`, `Day ${t} · ${DAYS[t - 1].en}`);
+    const dayTxt = !scheduled() ? L('النظام مفتوح — كل الأيام متاحة', 'Open — all days available') : t === 0 ? L('قبل بدء الدورة', 'Before the course') : t === 6 ? L('ما بعد الدورة', 'After the course') : L(`اليوم ${t} · ${DAYS[t - 1].ar}`, `Day ${t} · ${DAYS[t - 1].en}`);
     return `<span class="tfc-chip">${u ? `👤 <b>${esc(u.name)}</b>${u.group && u.group !== 'عام' ? ` · ${esc(u.group)}` : ''}${u.local ? ' <small>' + L('(محلي)', '(local)') + '</small>' : ''}` : '👤 ' + L('غير مسجّل', 'Not registered')}</span><span class="tfc-chip day">📅 ${dayTxt}</span><span class="tfc-chip">📈 ${L('تقدّمي', 'My progress')} ${snap.overall}%</span><a class="tfc-link" href="${A}#/course">${L('مسار الدورة', 'Course track')}</a><a class="tfc-link" href="trainer.html">${L('دخول المدرب', 'Trainer')}</a>${u ? `<button type="button" class="tfc-out" data-tfc="out">${L('خروج', 'Sign out')}</button>` : `<button type="button" class="tfc-out" data-tfc="reg">${L('تسجيل', 'Register')}</button>`}`;
   }
   document.addEventListener('click', e => { const b = e.target.closest('[data-tfc]'); if (!b) return; if (b.dataset.tfc === 'out') { if (confirm('تسجيل الخروج من هذا الجهاز؟')) signOut(); } else regModal(); });
 
   /* ───── مسار الدورة (واجهة) ───── */
   function mountTrack(host, sel) {
-    if (!host) return; const u = user(), t = today(), cur = sel || Math.max(1, Math.min(5, t || 1)); const d = DAYS[cur - 1], p = dayProgress(d), snap = snapshot();
-    const startD = new Date(cfg().start + 'T00:00:00'); const dateOf = n => { const x = new Date(startD); x.setDate(x.getDate() + n - 1); return x.toLocaleDateString(EN() ? 'en-GB' : 'ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long' }); }; const dn = x => EN() ? x.en : x.ar;
+    if (!host) return; const u = user(), t = today(), sched = scheduled(), cur = sel || Math.max(1, Math.min(5, t || 1)); const d = DAYS[cur - 1], p = dayProgress(d), snap = snapshot();
+    const startD = new Date(cfg().start + 'T00:00:00'); const dateOf = n => { if (!sched || isNaN(startD)) return ''; const x = new Date(startD); x.setDate(x.getDate() + n - 1); return x.toLocaleDateString(EN() ? 'en-GB' : 'ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long' }); }; const dn = x => EN() ? x.en : x.ar;
     host.innerHTML = `<div class="wrap tfc-wrap">
-      <section class="tfc-hero" style="--c:${d.col}"><div><div class="tfc-k">GRCP® COURSE · TRACK FORD · ${t ? (t === 6 ? 'AFTER COURSE' : 'DAY ' + t) : 'PRE-COURSE'}</div>
+      <section class="tfc-hero" style="--c:${d.col}"><div><div class="tfc-k">GRCP® COURSE · TRACK FORD · ${sched ? (t ? (t === 6 ? 'AFTER COURSE' : 'DAY ' + t) : 'PRE-COURSE') : 'SELF-PACED'}</div>
         <h2>${u ? L(`أهلًا ${esc(u.name)}`, `Welcome ${esc(u.name)}`) : L('أهلًا بك في مسار الدورة', 'Welcome to the course track')}${u && u.group && u.group !== 'عام' ? ` <small>${esc(u.group)}</small>` : ''}</h2>
-        <p>${t === 0 ? L(`تبدأ الدورة ${dateOf(1)}. يمكنك الاطّلاع على اليوم الأول استعدادًا.`, `The course starts ${dateOf(1)}. You can preview Day 1.`) : t === 6 ? L('انتهت أيام الدورة — كل الأيام متاحة للمراجعة، والتركيز الآن على الاختبار الحقيقي.', 'Course days are over — all days are open for review; focus now on the real exam.') : L(`اليوم هو اليوم ${t} من 5: <b>${DAYS[t - 1].ar}</b> — من 7 إلى 10 مساءً. أكمل بنود اليوم بالترتيب؛ الأيام القادمة تُفتح في موعدها.`, `Today is Day ${t} of 5: <b>${DAYS[t - 1].en}</b> — 7 to 10 pm. Complete today's items in order; coming days unlock on schedule.`)}</p>
+        <p>${!sched ? L('النظام مفتوح لأي تاريخ: الأيام الخمسة متاحة بالكامل — تنقّل بينها ونفّذ المحاضرات والأنشطة والألعاب والمصمّمات بأي ترتيب وبأي وقت يناسبك.', 'Open for any date: all five days are fully available — move between them and work through the lectures, activities, games and builders in any order, any time.') : t === 0 ? L(`تبدأ الدورة ${dateOf(1)}. والأيام كلها متاحة للاطّلاع الآن.`, `The course starts ${dateOf(1)}. All days are available to preview now.`) : t === 6 ? L('انتهت أيام الدورة — كل الأيام متاحة للمراجعة، والتركيز الآن على الاختبار الحقيقي.', 'Course days are over — all days are open for review; focus now on the real exam.') : L(`اليوم هو اليوم ${t} من 5: <b>${DAYS[t - 1].ar}</b>. كل الأيام متاحة؛ ركّز على بنود يومك ثم انتقل كما تحب.`, `Today is Day ${t} of 5: <b>${DAYS[t - 1].en}</b>. All days are open; focus on today's items then move freely.`)}</p>
         ${!u ? `<button type="button" class="tfc-btn gold" data-tfc="reg">${L('سجّل الآن ليُحفظ تقدّمك', 'Register now to save your progress')}</button>` : (u.local ? '<div class="tfc-note">⚠️ التقدّم محفوظ على هذا الجهاز فقط. <button type="button" class="tfc-mini" id="tfcCode">نسخ كود تقدّمي للمدرب</button></div>' : `<div class="tfc-note">✅ تقدّمك يُزامَن مع لوحة المدرب${u.lastSync ? ' · آخر مزامنة ' + new Date(u.lastSync).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : ''}</div>`)}
         </div><div class="tfc-ring" style="--p:${snap.overall}"><b>${snap.overall}%</b><span>${L('تقدّمي الإجمالي', 'Overall progress')}</span></div></section>
-      <nav class="tfc-days">${DAYS.map(x => { const q = dayProgress(x), lk = !unlocked(x.n); return `<button type="button" data-d="${x.n}" class="${x.n === cur ? 'on' : ''} ${lk ? 'lock' : ''} ${x.n === t ? 'today' : ''}" ${lk ? 'disabled' : ''} style="--c:${x.col}"><span class="dn">${lk ? '🔒' : x.n === t ? '📍' : q.pct === 100 ? '✅' : x.n}</span><span class="dt">${L('اليوم', 'Day')} ${x.n}</span><span class="dd">${dn(x)}</span><span class="dp"><i style="width:${q.pct}%"></i></span><small>${dateOf(x.n)} · ${q.pct}%</small></button>`; }).join('')}</nav>
+      <nav class="tfc-days">${DAYS.map(x => { const q = dayProgress(x); const dt = dateOf(x.n); return `<button type="button" data-d="${x.n}" class="${x.n === cur ? 'on' : ''} ${x.n === t ? 'today' : ''}" style="--c:${x.col}"><span class="dn">${x.n === t ? '📍' : q.pct === 100 ? '✅' : x.n}</span><span class="dt">${L('اليوم', 'Day')} ${x.n}</span><span class="dd">${dn(x)}</span><span class="dp"><i style="width:${q.pct}%"></i></span><small>${dt ? dt + ' · ' : ''}${q.pct}%</small></button>`; }).join('')}</nav>
       <section class="tfc-day" style="--c:${d.col}"><div class="tfc-dh"><h3>${L('اليوم', 'Day')} ${d.n} — ${dn(d)} <span class="en">${EN() ? d.ar : d.en}</span></h3><div class="tfc-dp">${p.done} / ${p.total} ${L('بند مكتمل', 'items done')}</div></div>
         <ol class="tfc-items">${d.items.map((i, k) => { let ok = false; try { ok = !!i.chk(); } catch (e) {} return `<li class="${ok ? 'ok' : ''}"><span class="num">${ok ? '✓' : k + 1}</span><div class="tx"><a href="${i.href}" ${/^https?:/.test(i.href) ? 'target="_blank" rel="noopener"' : ''}>${esc(EN() && i.te ? i.te : i.t)}</a>${i.manual ? `<button type="button" class="tfc-mini" data-mark="${i.k}" data-v="${ok ? '0' : '1'}">${ok ? L('إلغاء التعليم', 'Unmark') : L('تم ✓', 'Done ✓')}</button>` : ''}</div><a class="go" href="${i.href}" ${/^https?:/.test(i.href) ? 'target="_blank" rel="noopener"' : ''}>${ok ? L('مراجعة', 'Review') : L('ابدأ', 'Start')} ${L('←', '→')}</a></li>`; }).join('')}</ol>
-        <div class="tfc-foot">${d.n === 5 ? L('<b>مشروع المجموعة:</b> كل مجموعة تعرض خريطة GRC لمنظمة مختارة (الملف في النظام + التقييم في المقيّم + فيديو المحاكاة) خلال 10 دقائق.', '<b>Group project:</b> each group presents a GRC map of a chosen organisation (System profile + Navigator assessment + simulation video) in 10 minutes.') : L('<b>قاعدة اليوم:</b> لا تنتقل إلى اليوم التالي قبل إكمال 80% من بنود اليوم — المدرب يرى نسبتك.', '<b>Rule of the day:</b> do not move on before completing 80% of today\'s items — your trainer sees your percentage.')}</div></section>
+        <div class="tfc-foot">${d.n === 5 ? L('<b>مشروع المجموعة:</b> كل مجموعة تعرض خريطة GRC لمنظمة مختارة (الملف في النظام + التقييم في المقيّم + فيديو المحاكاة) خلال 10 دقائق.', '<b>Group project:</b> each group presents a GRC map of a chosen organisation (System profile + Navigator assessment + simulation video) in 10 minutes.') : L('<b>نصيحة:</b> أكمل 80% من بنود هذا المحور قبل الانتقال للتالي لأفضل استفادة — المدرب يرى نسبتك. كل المحاور متاحة في أي وقت.', '<b>Tip:</b> complete 80% of this topic before moving on for best results — your trainer sees your percentage. All topics are available any time.')}</div></section>
       ${u && !u.local ? '' : ''}</div>`;
     host.querySelectorAll('.tfc-days button:not([disabled])').forEach(b => b.onclick = () => mountTrack(host, +b.dataset.d));
     const cb = host.querySelector('#tfcCode'); if (cb) cb.onclick = () => { const o = { id: u.id, name: u.name, group: u.group, org: u.org, phone: u.phone, email: u.email, created: u.created, progress: snapshot() }; const code = btoa(unescape(encodeURIComponent(JSON.stringify(o)))); (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).then(() => toast('نُسخ الكود — أرسله للمدرب عبر واتساب.')).catch(() => prompt('انسخ الكود:', code)); };
@@ -241,6 +243,6 @@
     document.addEventListener('visibilitychange', () => { if (document.hidden) sync(true); });
     window.addEventListener('beforeunload', () => { const u = user(); if (u && u.token && !u.local && navigator.sendBeacon) { try { navigator.sendBeacon('/api/progress', new Blob([JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() })], { type: 'application/json' })); } catch (e) {} } });
   }
-  window.TFC = { DAYS, cfg, EN, L, today, dayIndex, unlocked, user, setUser, regModal, snapshot, dayProgress, sync, mark, seen, chip, mountTrack, signOut, dayOfLecture, toast };
+  window.TFC = { DAYS, cfg, scheduled, EN, L, today, dayIndex, unlocked, user, setUser, regModal, snapshot, dayProgress, sync, mark, seen, chip, mountTrack, signOut, dayOfLecture, toast };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
