@@ -81,8 +81,6 @@
   const user = () => rd(LS_U, null);
   function setUser(u) { wr(LS_U, u); try { if (u) localStorage.setItem('grcpUser', JSON.stringify({ name: u.name, email: u.email || '', phone: u.phone || '', org: u.org || '', since: u.created || Date.now(), id: u.id })); } catch (e) {} }
   async function api(path, opt) { const r = await fetch((window.TF_API_BASE||'')+path, Object.assign({ headers: { 'content-type': 'text/plain' } }, opt)); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; }
-  let serverOk = null;
-  async function probe() { if (serverOk !== null) return serverOk; try { const r = await api('/api/reg'); serverOk = !!(r.ok && r.j.ok); } catch (e) { serverOk = false; } return serverOk; }
 
   /* ───── التقدّم ───── */
   function dayProgress(d) { const items = d.items; const done = items.filter(i => { try { return !!i.chk(); } catch (e) { return false; } }).length; return { done, total: items.length, pct: Math.round(done / items.length * 100) }; }
@@ -174,23 +172,50 @@
       </form></div>`;
     document.body.appendChild(ov); document.body.style.overflow = 'hidden';
     const form = ov.querySelector('#tfRegForm'), msg = ov.querySelector('#tfRegMsg');
-    const setMode = login => { ov.querySelectorAll('.reg-only').forEach(e => e.style.display = login ? 'none' : ''); ov.querySelector('h2').textContent = login ? 'تسجيل الدخول' : 'تسجيل المتدرب'; ov.querySelector('#tfRegGo').textContent = login ? 'دخول' : 'تسجيل والبدء'; ov.querySelector('#tfRegSwitch').textContent = login ? 'ليس لديّ حساب — تسجيل جديد' : 'لديّ حساب — دخول'; form.dataset.login = login ? '1' : ''; form.querySelector('[name=name]').required = !login; };
+    // A local profile is a draft, never an automatically uploaded account.
+    const saved = user();
+    if (saved && saved.local && !saved.guest) {
+      for (const key of ['name', 'phone', 'email', 'group', 'org', 'role']) {
+        const field = form.elements.namedItem(key);
+        if (!field || typeof saved[key] !== 'string') continue;
+        if (key === 'group' && !Array.from(field.options).some(option => option.value === saved[key])) {
+          const option = document.createElement('option'); option.value = saved[key]; option.textContent = saved[key]; field.appendChild(option);
+        }
+        field.value = saved[key];
+      }
+    }
+    let active = true, submitting = false, revision = 0, pending = null;
+    const cancelPending = () => { revision++; submitting = false; if (pending) pending.abort(); pending = null; ov.querySelector('#tfRegGo').disabled = false; };
+    const setMode = login => { cancelPending(); msg.textContent = ''; ov.querySelectorAll('.reg-only').forEach(e => e.style.display = login ? 'none' : ''); ov.querySelector('h2').textContent = login ? 'تسجيل الدخول' : 'تسجيل المتدرب'; ov.querySelector('#tfRegGo').textContent = login ? 'دخول' : 'تسجيل والبدء'; ov.querySelector('#tfRegSwitch').textContent = login ? 'ليس لديّ حساب — تسجيل جديد' : 'لديّ حساب — دخول'; form.dataset.login = login ? '1' : ''; form.querySelector('[name=name]').required = !login; };
     setMode(!!opts.login);
     ov.querySelector('#tfRegSwitch').onclick = () => setMode(!form.dataset.login);
-    const close = () => { ov.remove(); document.body.style.overflow = ''; render(); };
+    const close = () => { active = false; cancelPending(); ov.remove(); document.body.style.overflow = ''; render(); };
     ov.querySelector('#tfRegGuest').onclick = () => { setUser({ id: 'guest', name: 'ضيف', guest: true, local: true, created: Date.now() }); close(); };
     form.onsubmit = async e => {
-      e.preventDefault(); const fd = Object.fromEntries(new FormData(form).entries()); const login = !!form.dataset.login;
+      e.preventDefault(); if (!active || submitting) return;
+      const fd = Object.fromEntries(new FormData(form).entries()), login = !!form.dataset.login;
+      const attempt = ++revision, controller = new AbortController(); pending = controller; submitting = true;
+      const current = () => active && revision === attempt && document.getElementById('tfReg') === ov;
       msg.textContent = 'جارٍ الاتصال…'; ov.querySelector('#tfRegGo').disabled = true;
-      const ok = await probe();
-      if (!ok) {
-        const u = { id: 'L' + (fd.phone || '').replace(/\D/g, '').slice(-9), name: fd.name || (user() || {}).name || 'متدرب', phone: fd.phone, email: fd.email || '', group: fd.group || 'عام', org: fd.org || '', role: fd.role || '', local: true, created: Date.now() };
-        setUser(u); msg.textContent = ''; close(); toast('تم التسجيل محليًا على هذا الجهاز (لم تُفعَّل قاعدة البيانات بعد).'); return;
+      try {
+        // The explicit form submission always tries the real service; a failed health probe must not create a local account.
+        const r = await api('/api/reg', { method: 'POST', signal: controller.signal, body: JSON.stringify(Object.assign({ action: login ? 'login' : 'register' }, fd)) });
+        if (!current()) return;
+        if (!r.ok || r.j.ok !== true) {
+          const E = { bad_phone: 'رقم الجوال غير صحيح (05xxxxxxxx).', bad_pin: login ? 'الرقم السري غير صحيح.' : 'الرقم السري 4 إلى 6 أرقام.', bad_name: 'اكتب الاسم الكامل.', exists: 'هذا الجوال مسجّل برقم سري مختلف — اختر «لديّ حساب».', not_found: 'لا يوجد حساب بهذا الجوال — سجّل حسابًا جديدًا.' };
+          msg.textContent = E[r.j.error] || 'لم يكتمل التسجيل على الخادم. بياناتك وتقدّمك على هذا الجهاز محفوظان؛ حاول مجددًا.'; return;
+        }
+        const normalizedPhone = value => String(value || '').replace(/\D/g, '').replace(/^00/, '').replace(/^966/, '0').replace(/^5/, '05');
+        if (!r.j.user || typeof r.j.user !== 'object' || Array.isArray(r.j.user) || r.j.local === true || r.j.user.local === true || r.j.user.guest === true || !/^[0-9a-f]{16}$/.test(r.j.user.id || '') || !/^[0-9a-f]{40}$/.test(r.j.token || '') || normalizedPhone(r.j.user.phone) !== normalizedPhone(fd.phone)) {
+          msg.textContent = 'لم نتمكّن من تأكيد التسجيل على الخادم. بياناتك وتقدّمك محفوظان؛ حاول مجددًا.'; return;
+        }
+        const u = Object.assign({}, r.j.user, { token: r.j.token });
+        setUser(u); close(); toast(r.j.created ? `أهلًا ${u.name} — تم تسجيلك في الدورة.` : `أهلًا بعودتك ${u.name}.`); sync(true);
+      } catch (error) {
+        if (current()) msg.textContent = 'تعذّر الاتصال بالخادم ولم يكتمل التسجيل. بياناتك وتقدّمك على هذا الجهاز محفوظان؛ حاول مجددًا.';
+      } finally {
+        if (current()) { submitting = false; pending = null; ov.querySelector('#tfRegGo').disabled = false; }
       }
-      const r = await api('/api/reg', { method: 'POST', body: JSON.stringify(Object.assign({ action: login ? 'login' : 'register' }, fd)) });
-      ov.querySelector('#tfRegGo').disabled = false;
-      if (!r.ok) { const E = { bad_phone: 'رقم الجوال غير صحيح (05xxxxxxxx).', bad_pin: login ? 'الرقم السري غير صحيح.' : 'الرقم السري 4 إلى 6 أرقام.', bad_name: 'اكتب الاسم الكامل.', exists: 'هذا الجوال مسجّل برقم سري مختلف — اختر «لديّ حساب».', not_found: 'لا يوجد حساب بهذا الجوال — سجّل حسابًا جديدًا.' }; msg.textContent = E[r.j.error] || 'تعذّر الاتصال بالخادم، حاول مرة أخرى.'; return; }
-      const u = Object.assign({}, r.j.user, { token: r.j.token }); setUser(u); close(); toast(r.j.created ? `أهلًا ${u.name} — تم تسجيلك في الدورة.` : `أهلًا بعودتك ${u.name}.`); sync(true);
     };
   }
   function toast(m) { let t = document.getElementById('tfToast'); if (!t) { t = document.createElement('div'); t.id = 'tfToast'; document.body.appendChild(t); } t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 3200); }
@@ -200,7 +225,7 @@
   function chip() {
     const u = user(), t = today(), snap = snapshot();
     const dayTxt = !scheduled() ? L('النظام مفتوح — كل الأيام متاحة', 'Open — all days available') : t === 0 ? L('قبل بدء الدورة', 'Before the course') : t === 6 ? L('ما بعد الدورة', 'After the course') : L(`اليوم ${t} · ${DAYS[t - 1].ar}`, `Day ${t} · ${DAYS[t - 1].en}`);
-    return `<span class="tfc-chip">${u ? `👤 <b>${esc(u.name)}</b>${u.group && u.group !== 'عام' ? ` · ${esc(u.group)}` : ''}${u.local ? ' <small>' + L('(محلي)', '(local)') + '</small>' : ''}` : '👤 ' + L('غير مسجّل', 'Not registered')}</span><span class="tfc-chip day">📅 ${dayTxt}</span><span class="tfc-chip">📈 ${L('تقدّمي', 'My progress')} ${snap.overall}%</span><a class="tfc-link" href="${A}#/course">${L('مسار الدورة', 'Course track')}</a><a class="tfc-link" href="trainer.html">${L('دخول المدرب', 'Trainer')}</a>${u ? `<button type="button" class="tfc-out" data-tfc="out">${L('خروج', 'Sign out')}</button>` : `<button type="button" class="tfc-out" data-tfc="reg">${L('تسجيل', 'Register')}</button>`}`;
+    return `<span class="tfc-chip">${u ? `👤 <b>${esc(u.name)}</b>${u.group && u.group !== 'عام' ? ` · ${esc(u.group)}` : ''}${u.local ? ' <small>' + L('(محلي)', '(local)') + '</small>' : ''}` : '👤 ' + L('غير مسجّل', 'Not registered')}</span><span class="tfc-chip day">📅 ${dayTxt}</span><span class="tfc-chip">📈 ${L('تقدّمي', 'My progress')} ${snap.overall}%</span><a class="tfc-link" href="${A}#/course">${L('مسار الدورة', 'Course track')}</a><a class="tfc-link" href="trainer.html">${L('دخول المدرب', 'Trainer')}</a>${u && u.local && !u.guest ? `<button type="button" class="tfc-out" data-tfc="online">${L('تسجيل على الخادم', 'Register online')}</button>` : ''}${u ? `<button type="button" class="tfc-out" data-tfc="out">${L('خروج', 'Sign out')}</button>` : `<button type="button" class="tfc-out" data-tfc="reg">${L('تسجيل', 'Register')}</button>`}`;
   }
   document.addEventListener('click', e => { const b = e.target.closest('[data-tfc]'); if (!b) return; if (b.dataset.tfc === 'out') { if (confirm('تسجيل الخروج من هذا الجهاز؟')) signOut(); } else regModal(); });
 

@@ -42,27 +42,75 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const $ = s => document.querySelector(s); const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const DAYS = window.TFC ? window.TFC.DAYS : [];
   let PIN = sessionStorage.getItem('tf_trainer_pin') || '', DATA = null, FILTER = { g: '', q: '' }, timer = null;
-  const LOCAL_PIN = '275819';
   /* طلبات «بسيطة» بلا preflight: الرقم السري في الرابط + content-type نصّي، لتفادي أي حجب CORS */
   const api = async (opt) => { try { const r = await fetch((window.TF_API_BASE||'')+'/api/trainer?pin=' + encodeURIComponent(PIN), Object.assign({ headers: { 'content-type': 'text/plain' } }, opt || {})); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; } catch (e) { return { ok: false, status: 0, j: { error: 'offline' } }; } };
   const LIVE = () => !!(window.TF_API_BASE || '').trim();
-  /* وضع محلي: عند فتح الملفات بدون خادم (file://) أو قبل نشر الـ API — يعمل بالرقم الافتراضي ويعرض البيانات المستوردة */
-  const localData = () => ({ ok: true, local: true, offline: true, users: [], config: JSON.parse(localStorage.getItem('tf_course_cfg') || '{}') });
+  // Read-only recovery of browser-local progress-code snapshots. Never merge this archive into the live roster.
+  const ARCHIVE_KEY = 'tf_trainer_local', ARCHIVE_MAX_CHARS = 2 * 1024 * 1024, ARCHIVE_MAX_ROWS = 2000;
+  function archivePresent() { try { return localStorage.getItem(ARCHIVE_KEY) !== null; } catch (e) { return false; } }
+  function archiveEntry() {
+    return archivePresent() ? '<div class="card" style="background:#FFF7ED;border:1px solid #FED7AA"><div class="tools"><b>أرشيف الأكواد المستوردة</b><span class="note">ملخصات تقدّم محفوظة في هذا المتصفح، مستقلة عن سجل الخادم الحيّ. هذا العرض لا يحذفها ولا ينشئ لها حسابات على الخادم.</span></div><button type="button" class="btn ghost sm" id="archiveOpen">عرض أرشيف الأكواد المستوردة</button></div>' : '';
+  }
+  function archiveState() {
+    let raw;
+    try { raw = localStorage.getItem(ARCHIVE_KEY); } catch (e) { return { raw: null, error: 'تعذّرت قراءة التخزين المحلي في هذا المتصفح.' }; }
+    if (raw === null) return { raw: null, error: 'لا توجد أكواد مستوردة في هذا المتصفح. استخدم الجهاز وملف المتصفح ورابط الموقع الذي استوردت فيه الأكواد.' };
+    if (raw.length > ARCHIVE_MAX_CHARS) return { raw, error: 'الأرشيف أكبر من حد العرض الآمن. نزّل النسخة الأصلية للاحتفاظ بها؛ لم نغيّرها.' };
+    let records;
+    try { records = JSON.parse(raw); } catch (e) { return { raw, error: 'صيغة الأرشيف غير مقروءة. يمكنك تنزيل النسخة الأصلية للفحص؛ لم نغيّرها.' }; }
+    if (!Array.isArray(records)) return { raw, error: 'صيغة الأرشيف ليست قائمة أكواد. يمكنك تنزيل النسخة الأصلية؛ لم نغيّرها.' };
+    if (records.length > ARCHIVE_MAX_ROWS) return { raw, error: 'عدد السجلات يتجاوز حد العرض الآمن (2000). نزّل النسخة الأصلية؛ لم نغيّرها.' };
+    const rows = records.filter(row => row && typeof row === 'object' && !Array.isArray(row));
+    return { raw, rows, count: records.length, skipped: records.length - rows.length };
+  }
+  function showArchive() {
+    if ($('#importArchive')) { $('#archiveClose').focus(); return; }
+    const state = archiveState(), previousFocus = document.activeElement, previousOverflow = document.body.style.overflow;
+    const overlay = document.createElement('div'); overlay.id = 'importArchive';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(10,27,61,.7);padding:20px;display:grid;place-items:center;direction:rtl';
+    overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="archiveTitle" class="card" style="width:min(1180px,100%);max-height:90vh;overflow:auto;margin:0"><div class="tools"><h2 id="archiveTitle" style="margin:0">أرشيف الأكواد المستوردة</h2><span style="flex:1"></span><button type="button" class="btn ghost sm" id="archiveClose">إغلاق</button></div><p class="note">هذه نسخ تقدّم وقت استيراد الأكواد، محفوظة على هذا الجهاز فقط. قد تكون قديمة أو مكررة؛ ليست قائمة حسابات الخادم ولا تدل على اتصال المتدرب الآن. العرض والتنزيل لا يرسلان شيئًا إلى الخادم ولا يغيّران الأرشيف.</p><div class="tools"><button type="button" class="btn gold sm" id="archiveExport">تنزيل نسخة JSON أصلية</button><span class="note">النسخة تتضمن بيانات المتدربين؛ احتفظ بها بشكل خاص.</span></div><p class="note" id="archiveStatus" role="status"></p><div style="overflow:auto"><table id="archiveTable"><thead><tr><th>#</th><th>الاسم</th><th>المجموعة</th><th>الجهة</th><th>الجوال</th><th>البريد</th><th>التقدّم</th><th>النقاط</th><th>الوقت (دقيقة)</th><th>الأيام 1–5</th><th>أفضل اختبار</th><th>تاريخ التسجيل في الكود</th></tr></thead><tbody id="archiveRows"></tbody></table></div></section>';
+    document.body.appendChild(overlay); document.body.style.overflow = 'hidden';
+    const close = () => { document.removeEventListener('keydown', keydown); overlay.remove(); document.body.style.overflow = previousOverflow; if (previousFocus && previousFocus.isConnected) previousFocus.focus(); };
+    const keydown = event => {
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+      if (event.key === 'Tab') { const first = $('#archiveClose'), last = $('#archiveExport').disabled ? first : $('#archiveExport'); if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } }
+    };
+    document.addEventListener('keydown', keydown); $('#archiveClose').onclick = close; overlay.onclick = event => { if (event.target === overlay) close(); };
+    const status = $('#archiveStatus'), exportButton = $('#archiveExport');
+    status.textContent = state.error || ('عدد الأكواد المحفوظة: ' + state.count + ' · المعروض: ' + state.rows.length + (state.skipped ? ' · سجلات غير صالحة للعرض: ' + state.skipped + ' (بقيت في النسخة الأصلية)' : '') + (!state.rows.length ? ' · الأرشيف فارغ.' : ''));
+    exportButton.disabled = state.raw === null;
+    exportButton.onclick = () => {
+      if (state.raw === null) return;
+      let url = '', link;
+      try { url = URL.createObjectURL(new Blob([state.raw], { type: 'application/json;charset=utf-8' })); link = document.createElement('a'); link.href = url; link.download = 'TrackFord_imported_progress_archive_' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(link); link.click(); status.textContent = 'بدأ تنزيل النسخة الأصلية. تحقّق من مجلد التنزيلات؛ الأرشيف المحفوظ لم يتغيّر.'; }
+      catch (e) { status.textContent = 'تعذّر بدء التنزيل. الأرشيف الأصلي ما زال محفوظًا ولم يتغيّر.'; }
+      finally { if (link) link.remove(); if (url) setTimeout(() => URL.revokeObjectURL(url), 1000); }
+    };
+    const text = (value, limit = 200) => typeof value === 'string' || typeof value === 'number' ? String(value).slice(0, limit) : '';
+    const number = (value, max) => { const n = typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? Number(value) : NaN; return Number.isFinite(n) && n >= 0 && n <= max ? n : null; };
+    const numeric = (value, max = 1000000000, suffix = '', divisor = 1) => { const n = number(value, max); return n === null ? '—' : String(divisor === 1 ? n : Math.round(n / divisor)) + suffix; };
+    for (const [index, row] of (state.rows || []).entries()) {
+      const p = row.progress && typeof row.progress === 'object' && !Array.isArray(row.progress) ? row.progress : {}, scores = p.scores && typeof p.scores === 'object' ? p.scores : {}, days = p.days && typeof p.days === 'object' ? p.days : {};
+      const created = typeof row.created === 'number' || typeof row.created === 'string' ? new Date(row.created) : null;
+      const values = [index + 1, text(row.name) || 'بدون اسم', text(row.group), text(row.org), text(row.phone, 80), text(row.email, 254), numeric(p.overall, 100, '%'), numeric(p.points), numeric(p.timeSec, 1000000000, '', 60), [1, 2, 3, 4, 5].map(day => numeric(days[day], 100, '%')).join(' / '), numeric(scores.examBest, 100, '%'), created && Number.isFinite(created.getTime()) ? created.toLocaleString('ar-SA') : '—'];
+      const tr = document.createElement('tr'); for (const value of values) { const td = document.createElement('td'); td.textContent = String(value); tr.appendChild(td); } $('#archiveRows').appendChild(tr);
+    }
+    $('#archiveTable').hidden = !state.rows || !state.rows.length; $('#archiveClose').focus();
+  }
+  function bindArchive() { const button = $('#archiveOpen'); if (button) button.onclick = showArchive; }
   function login() {
-    $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h2>دخول المدرب</h2><p class="note">أدخل الرقم السري للمدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><div style="margin-top:12px"><button class="btn gold" id="go">دخول</button></div><div class="note" id="msg" style="margin-top:8px"></div></div>`;
+    $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h2>دخول المدرب</h2><p class="note">أدخل الرقم السري للمدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><div style="margin-top:12px"><button class="btn gold" id="go">دخول</button></div><div class="note" id="msg" style="margin-top:8px"></div></div>${archiveEntry()}`;
     $('#go').onclick = async () => {
       PIN = $('#pin').value.trim(); if (!PIN) { $('#msg').textContent = 'أدخل الرقم السري.'; return; }
       $('#msg').textContent = 'جارٍ التحقق…'; $('#go').disabled = true;
       let r = await api(); $('#go').disabled = false;
       if (!r.ok && (r.status === 0 || r.status === 404 || r.status >= 500)) {
-        if (LIVE()) { $('#msg').innerHTML = 'تعذّر الوصول إلى الخادم الحيّ (' + esc(window.TF_API_BASE) + ').<br>تأكد من اتصالك بالإنترنت وأن الرابط يعمل، ثم حاول مجددًا.'; return; }
-        /* لا يوجد خادم حيّ مضبوط: ادخل محليًا بالرقم الافتراضي */
-        if (PIN === LOCAL_PIN) { r = { ok: true, j: localData() }; }
-        else { $('#msg').textContent = 'لا يوجد خادم مضبوط. تأكد من ملف tf-config.js، أو استخدم رقم المدرب للدخول المحلي.'; return; }
+        $('#msg').textContent = 'تعذّر الاتصال بخادم المتدربين. الدخول يحتاج خادمًا متاحًا؛ يمكنك عرض أرشيف الأكواد المحفوظة محليًا.'; return;
       }
-      if (!r.ok) { $('#msg').textContent = r.status === 401 ? 'الرقم السري غير صحيح.' : 'تعذّر الاتصال بالخادم — حاول مرة أخرى.'; return; }
+      if (!r.ok || r.j.ok !== true || !Array.isArray(r.j.users) || r.j.local === true) { $('#msg').textContent = r.status === 401 ? 'الرقم السري غير صحيح.' : 'تعذّر الاتصال بالخادم — حاول مرة أخرى.'; return; }
       sessionStorage.setItem('tf_trainer_pin', PIN); localStorage.setItem('tf_unlock', '1'); DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); };
     $('#pin').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
+    bindArchive();
   }
   const pct = u => (u.progress && u.progress.overall) || 0, cls = p => p >= 70 ? 'g' : p >= 35 ? 'w' : p > 0 ? 'b' : 'z';
   const pts = u => (u.progress && u.progress.points) || 0;
@@ -100,7 +148,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
         <div class="grp" style="margin-top:10px">${groups.map(g => { const gu = users.filter(u => (u.group || 'عام') === g); return `<div class="g"><h4>${esc(g)} <small class="note">(${gu.length})</small></h4><div class="note">متصل الآن: ${gu.filter(online).length} · نقاط: ${sumBy(gu, pts)}</div></div>`; }).join('')}</div></div>
       <div class="card"><div class="tools"><b>إعدادات الدورة</b></div><div class="tools"><label>تاريخ بدء الدورة <input type="date" id="cStart" value="${esc(cfg.start || (window.TFC ? window.TFC.cfg().start : ''))}"></label><label>المجموعات (افصل بفاصلة) <input id="cGroups" style="min-width:320px" value="${esc((cfg.groups || (window.TFC ? window.TFC.cfg().groups : [])).join('، '))}"></label><button class="btn gold sm" id="cSave">حفظ</button><span class="note" id="cMsg"></span></div><p class="note">اليوم الظاهر للمتدربين يُحسب من تاريخ البدء: اليوم 1 = تاريخ البدء، وتُفتح الأيام تباعًا. رابط المدرب لفتح كل الأيام: <code>academy.html?all=1</code></p></div>
       ${DATA.local ? `<div class="card"><div class="tools"><b>استيراد كود تقدّم (للوضع المحلي)</b></div><div class="tools"><input id="impCode" style="min-width:420px" placeholder="الصق كود التقدّم الذي أرسله المتدرب"><button class="btn sm" id="impGo">استيراد</button></div><div id="impList" class="note"></div></div>` : ''}
-      ${!DATA.local && localStorage.getItem('tf_trainer_local') ? `<div class="card" style="background:#FFF7ED;border:1px solid #FED7AA"><div class="tools"><b>🧹 بيانات محلية قديمة</b><span class="note">كانت محفوظة قبل تفعيل الخادم الحيّ — لم تعد تُعرض. يمكنك مسحها نهائيًا.</span></div><div class="tools"><button class="btn ghost sm" id="clrLocal">مسح البيانات المحلية القديمة</button><span class="note" id="clrMsg"></span></div></div>` : ''}`;
+      ${archiveEntry()}`;
     $('#fg').onchange = e => { FILTER.g = e.target.value; render(); }; $('#fq').oninput = e => { FILTER.q = e.target.value; clearTimeout(timer); timer = setTimeout(render, 300); };
     $('#refresh').onclick = refresh; $('#print').onclick = () => print();
     $('#csv').onclick = () => { const rows = [['الاسم', 'المجموعة', 'الجهة', 'الجوال', 'البريد', 'النقاط', 'الوقت(دقيقة)', 'التقدّم%', 'يوم1', 'يوم2', 'يوم3', 'يوم4', 'يوم5', 'أفضل اختبار', 'النضج', 'آخر نشاط']].concat(f.slice().sort((a, b) => pts(b) - pts(a)).map(u => { const d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return [u.name, u.group, u.org, u.phone, u.email, pts(u), Math.round(tsec(u) / 60), pct(u), d[1] || 0, d[2] || 0, d[3] || 0, d[4] || 0, d[5] || 0, sc.examBest || '', sc.maturity || '', seen(u) ? seen(u).toISOString() : '']; })); const csv = '﻿' + rows.map(r => r.map(x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"').join(',')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'TrackFord_trainees.csv'; a.click(); };
@@ -109,7 +157,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     const rgGo = $('#rgGo'); if (rgGo) rgGo.onclick = async () => { const from = $('#rgFrom').value, to = $('#rgTo').value.trim(); if (!to) { $('#rgMsg').textContent = 'اكتب الاسم الجديد.'; return; } if (!confirm(`نقل كل أعضاء «${from}» إلى «${to}»؟`)) return; $('#rgMsg').textContent = 'جارٍ…'; const r = await api({ method: 'POST', body: JSON.stringify({ renameGroup: { from, to } }) }); if (r.ok && r.j.ok) { $('#rgMsg').textContent = `✅ نُقل ${r.j.moved} متدرب`; refresh(); } else { $('#rgMsg').textContent = 'تعذّر — فعّل قاعدة البيانات.'; } };
     document.querySelectorAll('[data-u]').forEach(b => b.onclick = () => drawer(users.find(u => u.id === b.dataset.u)));
     const impGo = $('#impGo'); if (impGo) impGo.onclick = () => { try { const o = JSON.parse(decodeURIComponent(escape(atob($('#impCode').value.trim())))); const loc = JSON.parse(localStorage.getItem('tf_trainer_local') || '[]'); const i = loc.findIndex(x => x.id === o.id); if (i >= 0) loc[i] = o; else loc.push(o); localStorage.setItem('tf_trainer_local', JSON.stringify(loc)); DATA.users = mergeLocal(DATA.users); render(); } catch (e) { $('#impList').textContent = 'الكود غير صالح.'; } };
-    const clrLocal = $('#clrLocal'); if (clrLocal) clrLocal.onclick = () => { if (!confirm('مسح كل البيانات المحلية القديمة من هذا المتصفح؟')) return; localStorage.removeItem('tf_trainer_local'); $('#clrMsg').textContent = '✅ مُسحت'; setTimeout(refresh, 400); };
+    bindArchive();
   }
   function mergeLocal(users) { if (LIVE() && DATA && !DATA.local) return users; /* الخادم الحيّ: أظهر متدربيه فقط ولا تخلط بيانات محلية قديمة */ const loc = JSON.parse(localStorage.getItem('tf_trainer_local') || '[]'); const ids = new Set(users.map(u => u.id)); return users.concat(loc.filter(x => !ids.has(x.id))); }
   function allGroups() { const cfg = DATA.config || {}; const set = new Set((cfg.groups || [])); (DATA.users || []).forEach(u => set.add(u.group || 'عام')); set.add('عام'); return [...set].filter(Boolean); }
@@ -151,7 +199,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   }
   async function refresh() { const r = await api(); if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); } else if (DATA && DATA.offline) { DATA.users = mergeLocal([]); render(); } }
   function start() { $('#logout').hidden = false; $('#logout').onclick = () => { sessionStorage.removeItem('tf_trainer_pin'); location.reload(); }; setInterval(refresh, 12000); }
-  (async () => { if (PIN) { let r = await api(); if (!r.ok && !LIVE() && PIN === LOCAL_PIN && (r.status === 0 || r.status === 404 || r.status >= 500)) r = { ok: true, j: localData() }; if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); return; } } login(); })();
+  (async () => { if (PIN) { const r = await api(); if (r.ok && r.j.ok === true && Array.isArray(r.j.users) && r.j.local !== true) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); } else login(); } else login(); })();
 })();
 </script>
 </body>
