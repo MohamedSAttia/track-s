@@ -49,7 +49,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const ARCHIVE_KEY = 'tf_trainer_local', ARCHIVE_MAX_CHARS = 2 * 1024 * 1024, ARCHIVE_MAX_ROWS = 2000;
   function archivePresent() { try { return localStorage.getItem(ARCHIVE_KEY) !== null; } catch (e) { return false; } }
   function archiveEntry() {
-    return archivePresent() ? '<div class="card" style="background:#FFF7ED;border:1px solid #FED7AA"><div class="tools"><b>أرشيف الأكواد المستوردة</b><span class="note">ملخصات تقدّم محفوظة في هذا المتصفح، مستقلة عن سجل الخادم الحيّ. هذا العرض لا يحذفها ولا ينشئ لها حسابات على الخادم.</span></div><button type="button" class="btn ghost sm" id="archiveOpen">عرض أرشيف الأكواد المستوردة</button></div>' : '';
+    return '<div class="card" style="background:#FFF7ED;border:1px solid #FED7AA"><div class="tools"><b>أرشيف الأكواد المستوردة</b><span class="note">ملخصات تقدّم محفوظة في هذا المتصفح، مستقلة عن سجل الخادم الحيّ. هذا العرض لا يحذفها ولا ينشئ لها حسابات على الخادم.</span></div><button type="button" class="btn ghost sm" id="archiveOpen">عرض أرشيف الأكواد المستوردة</button></div>';
   }
   function archiveState() {
     let raw;
@@ -99,7 +99,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   }
   function bindArchive() { const button = $('#archiveOpen'); if (button) button.onclick = showArchive; }
   function login() {
-    $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h2>دخول المدرب</h2><p class="note">أدخل الرقم السري للمدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><div style="margin-top:12px"><button class="btn gold" id="go">دخول</button></div><div class="note" id="msg" style="margin-top:8px"></div></div>${archiveEntry()}`;
+    $('#main').innerHTML = `${archiveEntry()}<div class="card login"><div style="font-size:44px">🔐</div><h2>دخول المدرب</h2><p class="note">أدخل الرقم السري للمدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><div style="margin-top:12px"><button class="btn gold" id="go">دخول</button></div><div class="note" id="msg" style="margin-top:8px"></div></div>`;
     $('#go').onclick = async () => {
       PIN = $('#pin').value.trim(); if (!PIN) { $('#msg').textContent = 'أدخل الرقم السري.'; return; }
       $('#msg').textContent = 'جارٍ التحقق…'; $('#go').disabled = true;
@@ -130,6 +130,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     const liveN = users.filter(online).length;
     const dayAvg = n => avg(users.map(u => +(((u.progress || {}).days || {})[n] || 0)));
     $('#main').innerHTML = `
+      ${archiveEntry()}
       ${!DATA.local ? '<div class="card" style="background:#ECFDF5;border:1px solid #6EE7B7;display:flex;gap:10px;align-items:center"><b style="color:#047857">✅ متصل بالخادم الحيّ</b><span class="note">المتابعة لحظية والتعديل والإشعارات تعمل — v4.7-LIVE ·' + esc((window.TF_API_BASE||'').replace(/^https?:\/\//,'')) + '</span></div>' : ''}
       ${DATA.offline ? '<div class="warnbox card">ℹ️ أنت في <b>الوضع المحلي</b> (لا يوجد خادم حيّ مضبوط في tf-config.js). استخدم نسخة v4.5-LIVE أو أحدث، أو استورد «كود التقدّم» أدناه.</div>' : ''}
       ${DATA.local && !DATA.offline ? '<div class="warnbox card">⚠️ قاعدة بيانات التسجيل غير مفعّلة بعد. فعّلها من Vercel → Storage → Upstash for Redis (خطوة واحدة) ليظهر هنا كل من سجّل وتقدّمه تلقائيًا. حتى ذلك الحين يمكن استيراد «كود التقدّم» من المتدربين أدناه.</div>' : ''}
@@ -148,7 +149,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
         <div class="grp" style="margin-top:10px">${groups.map(g => { const gu = users.filter(u => (u.group || 'عام') === g); return `<div class="g"><h4>${esc(g)} <small class="note">(${gu.length})</small></h4><div class="note">متصل الآن: ${gu.filter(online).length} · نقاط: ${sumBy(gu, pts)}</div></div>`; }).join('')}</div></div>
       <div class="card"><div class="tools"><b>إعدادات الدورة</b></div><div class="tools"><label>تاريخ بدء الدورة <input type="date" id="cStart" value="${esc(cfg.start || (window.TFC ? window.TFC.cfg().start : ''))}"></label><label>المجموعات (افصل بفاصلة) <input id="cGroups" style="min-width:320px" value="${esc((cfg.groups || (window.TFC ? window.TFC.cfg().groups : [])).join('، '))}"></label><button class="btn gold sm" id="cSave">حفظ</button><span class="note" id="cMsg"></span></div><p class="note">اليوم الظاهر للمتدربين يُحسب من تاريخ البدء: اليوم 1 = تاريخ البدء، وتُفتح الأيام تباعًا. رابط المدرب لفتح كل الأيام: <code>academy.html?all=1</code></p></div>
       ${DATA.local ? `<div class="card"><div class="tools"><b>استيراد كود تقدّم (للوضع المحلي)</b></div><div class="tools"><input id="impCode" style="min-width:420px" placeholder="الصق كود التقدّم الذي أرسله المتدرب"><button class="btn sm" id="impGo">استيراد</button></div><div id="impList" class="note"></div></div>` : ''}
-      ${archiveEntry()}`;
+      `;
     $('#fg').onchange = e => { FILTER.g = e.target.value; render(); }; $('#fq').oninput = e => { FILTER.q = e.target.value; clearTimeout(timer); timer = setTimeout(render, 300); };
     $('#refresh').onclick = refresh; $('#print').onclick = () => print();
     $('#csv').onclick = () => { const rows = [['الاسم', 'المجموعة', 'الجهة', 'الجوال', 'البريد', 'النقاط', 'الوقت(دقيقة)', 'التقدّم%', 'يوم1', 'يوم2', 'يوم3', 'يوم4', 'يوم5', 'أفضل اختبار', 'النضج', 'آخر نشاط']].concat(f.slice().sort((a, b) => pts(b) - pts(a)).map(u => { const d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return [u.name, u.group, u.org, u.phone, u.email, pts(u), Math.round(tsec(u) / 60), pct(u), d[1] || 0, d[2] || 0, d[3] || 0, d[4] || 0, d[5] || 0, sc.examBest || '', sc.maturity || '', seen(u) ? seen(u).toISOString() : '']; })); const csv = '﻿' + rows.map(r => r.map(x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"').join(',')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'TrackFord_trainees.csv'; a.click(); };
