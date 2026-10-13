@@ -80,7 +80,7 @@
   /* ───── المستخدم ───── */
   const user = () => rd(LS_U, null);
   function setUser(u) { wr(LS_U, u); try { if (u) localStorage.setItem('grcpUser', JSON.stringify({ name: u.name, email: u.email || '', phone: u.phone || '', org: u.org || '', since: u.created || Date.now(), id: u.id })); } catch (e) {} }
-  async function api(path, opt) { const r = await fetch(path, Object.assign({ headers: { 'content-type': 'application/json' } }, opt)); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; }
+  async function api(path, opt) { const r = await fetch((window.TF_API_BASE||'')+path, Object.assign({ headers: { 'content-type': 'application/json' } }, opt)); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; }
   let serverOk = null;
   async function probe() { if (serverOk !== null) return serverOk; try { const r = await api('/api/reg'); serverOk = !!(r.ok && r.j.ok); } catch (e) { serverOk = false; } return serverOk; }
 
@@ -265,7 +265,7 @@
     if (!localStorage.getItem('tf_notif_seen')) { const u = user(); if (u && !u.local) localStorage.setItem('tf_notif_seen', String(u.created || Date.now())); }
     setTimeout(pollNotifs, 6000); setInterval(() => { if (!document.hidden) pollNotifs(); }, 20000);
     document.addEventListener('visibilitychange', () => { if (document.hidden) sync(true); else { sync(); pollNotifs(); } });
-    window.addEventListener('beforeunload', () => { const u = user(); if (u && u.token && !u.local && navigator.sendBeacon) { try { navigator.sendBeacon('/api/progress', new Blob([JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() })], { type: 'application/json' })); } catch (e) {} } });
+    window.addEventListener('beforeunload', () => { const u = user(); if (u && u.token && !u.local) { try { fetch((window.TF_API_BASE||'')+'/api/progress', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() }), keepalive:true }); } catch (e) {} } });
   }
   window.TFC = { DAYS, cfg, scheduled, EN, L, today, dayIndex, unlocked, user, setUser, regModal, snapshot, dayProgress, sync, mark, seen, chip, mountTrack, signOut, dayOfLecture, toast };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

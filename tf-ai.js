@@ -6,7 +6,7 @@
   const state = { ready: null, ok: false, model: '' };
   async function probe() {
     if (state.ready) return state.ready;
-    state.ready = fetch('/api/ai', { method: 'GET', cache: 'no-store' })
+    state.ready = fetch((window.TF_API_BASE||'')+'/api/ai', { method: 'GET', cache: 'no-store' })
       .then(r => r.json().then(j => { state.ok = !!(r.ok && j && j.ok); state.model = (j && j.model) || ''; window.TF_API = state.ok; return state.ok; }))
       .catch(() => { state.ok = false; window.TF_API = false; return false; });
     return state.ready;
@@ -16,7 +16,7 @@
     opts = opts || {};
     const ok = await probe();
     if (!ok) { const e = new Error('ai_unavailable'); e.code = 'ai_unavailable'; throw e; }
-    const r = await fetch('/api/ai', {
+    const r = await fetch((window.TF_API_BASE||'')+'/api/ai', {
       method: 'POST', headers: { 'content-type': 'application/json' }, signal: opts.signal,
       body: JSON.stringify({ messages: messages, system: opts.system || '', max_tokens: opts.max_tokens || 2000 })
     });

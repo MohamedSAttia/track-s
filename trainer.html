@@ -35,6 +35,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
 <div class="sp"><a href="index.html">البوابة</a><a href="academy.html?all=1">الأكاديمية (كل الأيام)</a><a href="system.html">النظام</a><a href="navigator.html">المقيّم</a><button class="btn ghost sm" id="logout" hidden>خروج</button></div></div></header>
 <main id="main"></main>
 <div class="drawer" id="drawer"></div>
+<script src="tf-config.js"></script>
 <script src="tf-course.js"></script>
 <script>
 (() => {
@@ -42,7 +43,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const DAYS = window.TFC ? window.TFC.DAYS : [];
   let PIN = sessionStorage.getItem('tf_trainer_pin') || '', DATA = null, FILTER = { g: '', q: '' }, timer = null;
   const LOCAL_PIN = '275819';
-  const api = async (opt) => { try { const r = await fetch('/api/trainer', Object.assign({ headers: { 'x-trainer-pin': PIN, 'content-type': 'application/json' } }, opt || {})); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; } catch (e) { return { ok: false, status: 0, j: { error: 'offline' } }; } };
+  const api = async (opt) => { try { const r = await fetch((window.TF_API_BASE||'')+'/api/trainer', Object.assign({ headers: { 'x-trainer-pin': PIN, 'content-type': 'application/json' } }, opt || {})); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; } catch (e) { return { ok: false, status: 0, j: { error: 'offline' } }; } };
   /* وضع محلي: عند فتح الملفات بدون خادم (file://) أو قبل نشر الـ API — يعمل بالرقم الافتراضي ويعرض البيانات المستوردة */
   const localData = () => ({ ok: true, local: true, offline: true, users: [], config: JSON.parse(localStorage.getItem('tf_course_cfg') || '{}') });
   function login() {
