@@ -42,8 +42,10 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const $ = s => document.querySelector(s); const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const DAYS = window.TFC ? window.TFC.DAYS : [];
   let PIN = sessionStorage.getItem('tf_trainer_pin') || '', DATA = null, FILTER = { g: '', q: '' }, timer = null, pollTimer = null, refreshing = null, sessionEpoch = 0, lastRefresh = 0, refreshError = '';
+  let drawerContext = null, serverAction = null, rosterVersion = 0;
+  const uncertainAccounts = new Set();
   /* طلبات «بسيطة» بلا preflight: الرقم السري في الرابط + content-type نصّي، لتفادي أي حجب CORS */
-  const api = async (opt) => { try { const r = await fetch((window.TF_API_BASE||'')+'/api/trainer?pin=' + encodeURIComponent(PIN), Object.assign({ headers: { 'content-type': 'text/plain' } }, opt || {})); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; } catch (e) { return { ok: false, status: 0, j: { error: 'offline' } }; } };
+  const api = async (opt) => { try { const r = await fetch((window.TF_API_BASE||'')+'/api/trainer?pin=' + encodeURIComponent(PIN), Object.assign({ headers: { 'content-type': 'text/plain' } }, opt || {})); const raw = await r.json().catch(() => ({})), j = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}; return { ok: r.ok, status: r.status, j }; } catch (e) { return { ok: false, status: 0, j: { error: 'offline' } }; } };
   const LIVE = () => !!(window.TF_API_BASE || '').trim();
   // Read-only recovery of browser-local progress-code snapshots. Never merge this archive into the live roster.
   const ARCHIVE_KEY = 'tf_trainer_local', ARCHIVE_MAX_CHARS = 2 * 1024 * 1024, ARCHIVE_MAX_ROWS = 2000;
@@ -118,7 +120,9 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const fmtTime = s => { s = Math.round(s || 0); if (s < 60) return s + ' ث'; const m = Math.round(s / 60); if (m < 60) return m + ' د'; const h = Math.floor(m / 60); return h + ' س ' + (m % 60) + ' د'; };
   const sumBy = (arr, f) => arr.reduce((a, u) => a + (+f(u) || 0), 0);
   const seen = u => { const t = Math.max(u.lastSeen || 0, u.progress ? u.progress.at : 0, u.lastLogin || 0); return t ? new Date(t) : null; };
-  const online = u => { const t = Math.max(u.lastSeen || 0, u.progress ? u.progress.at : 0); return t && (Date.now() - t < 150000); };
+  const blocked = u => !!u && (u.blocked === true || u.status === 'blocked');
+  const blockState = u => u && typeof u.blocked === 'boolean' && u.status === (u.blocked ? 'blocked' : 'active') ? u.status : null;
+  const online = u => { if (blocked(u)) return false; const t = Math.max(u.lastSeen || 0, u.progress ? u.progress.at : 0); return t && (Date.now() - t < 150000); };
   const ago = d => { if (!d) return '—'; const m = Math.round((Date.now() - d) / 60000); return m < 2 ? 'الآن' : m < 60 ? `قبل ${m} د` : m < 1440 ? `قبل ${Math.round(m / 60)} س` : d.toLocaleDateString('ar-SA'); };
   const dot = u => online(u) ? '<span title="متصل الآن" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#22C55E;margin-inline-end:5px;box-shadow:0 0 0 3px rgba(34,197,94,.2)"></span>' : '<span title="غير متصل" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#CBD5E1;margin-inline-end:5px"></span>';
   const PREVIOUS_OVERLAY_KEY = 'tf_trainer_previous_overlay_v1', PREVIOUS_MAX_BYTES = 2 * 1024 * 1024;
@@ -260,7 +264,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
       <div class="card"><div class="tools"><b>المجموعات</b><span class="note">النقاط والوقت مجمّعة لكل مجموعة — مرتّبة حسب النقاط</span></div><div class="grp">${groups.slice().sort((a, b) => sumBy(users.filter(u => (u.group || 'عام') === b), pts) - sumBy(users.filter(u => (u.group || 'عام') === a), pts)).map(g => { const gu = users.filter(u => (u.group || 'عام') === g); const gp = sumBy(gu, pts); return `<div class="g"><h4>${esc(g)} <small class="note">(${gu.length})</small></h4><div class="bar ${cls(avg(gu.map(pct)))}"><i style="width:${avg(gu.map(pct))}%"></i></div><div class="note">متوسط التقدّم ${avg(gu.map(pct))}% · 🏆 <b>${gp}</b> نقطة · ⏱ ${fmtTime(sumBy(gu, tsec))}<br>أفضل متدرب: ${esc((gu.slice().sort((a, b) => pts(b) - pts(a))[0] || {}).name || '—')} · نقاط التحدي: ${gu.reduce((a, u) => a + (+((((u.progress || {}).scores || {}).team || {})[g]) || 0), 0)}</div></div>`; }).join('') || '<span class="note">لا توجد مجموعات بعد.</span>'}</div></div>
       <div class="card"><div class="tools"><b>المتدربون (${f.length})</b>${imported.hiddenCount ? `<button type="button" class="btn ghost sm" id="previousHiddenToggle">${showHiddenPrevious ? 'إخفاء السجلات المخفية' : 'إظهار السجلات المخفية'} (${imported.hiddenCount})</button>` : ''}<select id="fg"><option value="">كل المجموعات</option>${filterGroups.map(g => `<option ${FILTER.g === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select><input id="fq" placeholder="بحث بالاسم أو الجهة أو الجوال" value="${esc(FILTER.q)}"><span style="flex:1"></span><button class="btn ghost sm" id="csv">⬇ CSV (المعروض)</button><button class="btn ghost sm" id="print">🖨 طباعة</button><button class="btn sm" id="refresh">↻ تحديث</button></div>
         <div style="overflow:auto;max-height:70vh"><table><thead><tr><th>#</th><th>الاسم</th><th>المجموعة</th><th>الجهة</th><th>🏆 النقاط</th><th>⏱ الوقت</th><th>التقدّم</th><th>الأيام 1–5</th><th>أفضل اختبار</th><th>النضج</th><th>آخر نشاط / وقت الملخص</th><th></th></tr></thead><tbody>
-        ${f.slice().sort((a, b) => pts(b) - pts(a)).map((u, i) => { if (u.__tfSource === 'imported') return importedRow(u, i); const p = pct(u), d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return `<tr data-source="server"><td>${i + 1}</td><td>${dot(u)}<b>${esc(u.name)}</b><br><small class="note">حساب على الخادم</small>${u.role ? `<br><small class="note">${esc(u.role)}</small>` : ''}</td><td>${esc(u.group || 'عام')}</td><td>${esc(u.org || (u.progress || {}).org || '')}</td><td><b style="color:var(--gold);font-size:15px">${pts(u)}</b></td><td>${fmtTime(tsec(u))}</td><td><div class="bar ${cls(p)}"><i style="width:${p}%"></i></div><small>${p}%</small></td><td><div class="days">${[1, 2, 3, 4, 5].map(n => `<span class="${cls(+d[n] || 0)}" title="اليوم ${n}: ${+d[n] || 0}%">${+d[n] || 0}</span>`).join('')}</div></td><td>${sc.examBest ? sc.examBest + '%' : '—'}<br><small class="note">${sc.examAttempts || 0} محاولة</small></td><td>${sc.maturity ? sc.maturity + '/5' : '—'}</td><td>${ago(seen(u))}</td><td><button class="btn ghost sm" data-u="${esc(u.id)}">تفاصيل</button></td></tr>`; }).join('') || '<tr><td colspan="12" class="note">لا توجد سجلات ظاهرة تطابق الاختيار الحالي. راجع المرشّحات أو السجلات المخفية.</td></tr>'}
+        ${f.slice().sort((a, b) => pts(b) - pts(a)).map((u, i) => { if (u.__tfSource === 'imported') return importedRow(u, i); const p = pct(u), d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return `<tr data-source="server"><td>${i + 1}</td><td>${dot(u)}<b>${esc(u.name)}</b><br><small class="note">حساب على الخادم${blocked(u) ? ' · <b style="color:var(--bad)">محظور</b>' : ''}</small>${u.role ? `<br><small class="note">${esc(u.role)}</small>` : ''}</td><td>${esc(u.group || 'عام')}</td><td>${esc(u.org || (u.progress || {}).org || '')}</td><td><b style="color:var(--gold);font-size:15px">${pts(u)}</b></td><td>${fmtTime(tsec(u))}</td><td><div class="bar ${cls(p)}"><i style="width:${p}%"></i></div><small>${p}%</small></td><td><div class="days">${[1, 2, 3, 4, 5].map(n => `<span class="${cls(+d[n] || 0)}" title="اليوم ${n}: ${+d[n] || 0}%">${+d[n] || 0}</span>`).join('')}</div></td><td>${sc.examBest ? sc.examBest + '%' : '—'}<br><small class="note">${sc.examAttempts || 0} محاولة</small></td><td>${sc.maturity ? sc.maturity + '/5' : '—'}</td><td>${ago(seen(u))}</td><td><button class="btn ghost sm" data-u="${esc(u.id)}">تفاصيل</button></td></tr>`; }).join('') || '<tr><td colspan="12" class="note">لا توجد سجلات ظاهرة تطابق الاختيار الحالي. راجع المرشّحات أو السجلات المخفية.</td></tr>'}
         </tbody></table></div></div>
       <div class="card"><div class="tools"><b>🔔 إرسال إشعار / تنبيه</b><span class="note">يصل المتدربين فورًا داخل المنصّة (شبه لحظي)</span></div>
         <div class="tools"><select id="nTo"><option value="all">كل المتدربين</option>${groups.map(g => `<option value="group:${esc(g)}">مجموعة: ${esc(g)}</option>`).join('')}</select><input id="bTitle" placeholder="عنوان الإشعار" style="min-width:160px"><input id="bBody" placeholder="نص الإشعار" style="min-width:300px"><button class="btn gold sm" id="bSend">إرسال</button><span class="note" id="bMsg"></span></div>
@@ -288,15 +292,57 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     const impGo = $('#impGo'); if (impGo) impGo.onclick = () => { try { const o = JSON.parse(decodeURIComponent(escape(atob($('#impCode').value.trim())))); const loc = JSON.parse(localStorage.getItem('tf_trainer_local') || '[]'); const i = loc.findIndex(x => x.id === o.id); if (i >= 0) loc[i] = o; else loc.push(o); localStorage.setItem('tf_trainer_local', JSON.stringify(loc)); DATA.users = mergeLocal(DATA.users); render(); } catch (e) { $('#impList').textContent = 'الكود غير صالح.'; } };
     document.querySelectorAll('[data-previous-index]').forEach(button => button.onclick = () => previousDetails(imported.allRows.find(row => row.archiveIndex === Number(button.dataset.previousIndex))));
     if ($('#previousHiddenToggle')) $('#previousHiddenToggle').onclick = () => { showHiddenPrevious = !showHiddenPrevious; render(); };
-    bindArchive(); restoreDrafts(drafts);
+    bindArchive(); restoreDrafts(drafts); syncBlockControls();
   }
   function mergeLocal(users) { return users; } // Imported snapshots are displayed separately by importedRoster().
   function allGroups() { const cfg = DATA.config || {}; const set = new Set((cfg.groups || [])); (DATA.users || []).forEach(u => set.add(u.group || 'عام')); set.add('عام'); return [...set].filter(Boolean); }
   function grpOptions(sel) { return allGroups().map(g => `<option ${g === (sel || 'عام') ? 'selected' : ''}>${esc(g)}</option>`).join(''); }
+  function liveAccount(id) { const matches = DATA && !DATA.local && typeof id === 'string' && id ? (DATA.users || []).filter(user => user.id === id) : []; return matches.length === 1 ? matches[0] : null; }
+  const blockingAvailable = () => !!(DATA && DATA.capabilities && DATA.capabilities.learnerBlocking === true);
+  function activeDrawer(context) { return drawerContext === context && context.epoch === sessionEpoch && $('#drawer').classList.contains('on'); }
+  async function boundedTrainerPost(body) {
+    const controller = new AbortController(); let timeout;
+    try { return await Promise.race([api({ method: 'POST', body: JSON.stringify(body), signal: controller.signal }), new Promise(resolve => { timeout = setTimeout(() => { controller.abort(); resolve({ ok: false, status: 0, j: { error: 'timeout' } }); }, 10000); })]); }
+    finally { clearTimeout(timeout); }
+  }
+  function syncBlockControls() {
+    const context = drawerContext; if (!context || !activeDrawer(context)) return;
+    const user = liveAccount(context.id), state = blockingAvailable() ? blockState(user) : null, area = $('#dBlockArea'); if (!area) return;
+    $('#dBlockStatus').textContent = user ? (blocked(user) ? 'حساب محظور' : state === 'active' ? 'حساب نشط' : 'حالة الحظر غير متاحة من الخادم') : 'الحساب لم يعد ضمن القائمة الحالية';
+    $('#dPresence').innerHTML = user ? dot(user) + (online(user) ? '<b style="color:#16a34a">متصل الآن</b> · ' : '') : '';
+    $('#dSeen').textContent = user && seen(user) ? ago(seen(user)) : '—';
+    let button = $('#dBlock');
+    if (!state) { if (button) button.remove(); }
+    else {
+      if (!button) { button = document.createElement('button'); button.id = 'dBlock'; button.type = 'button'; button.className = 'btn ghost sm'; area.prepend(button); button.onclick = () => changeServerBlock(context); }
+      button.textContent = state === 'blocked' ? 'رفع الحظر عن الحساب' : 'حظر الحساب'; button.dataset.state = state; button.disabled = !!serverAction || uncertainAccounts.has(context.id);
+    }
+    if ($('#dDel')) $('#dDel').disabled = !!serverAction;
+  }
+  async function changeServerBlock(context) {
+    if (!activeDrawer(context) || !blockingAvailable() || serverAction || uncertainAccounts.has(context.id)) return;
+    const user = liveAccount(context.id), state = blockState(user); if (!state) { syncBlockControls(); return; }
+    const targetBlocked = state === 'active', action = targetBlocked ? 'block' : 'unblock';
+    const account = '«' + String(user.name || 'بدون اسم') + '» (' + String(user.phone || user.id) + ')';
+    const question = targetBlocked ? 'حظر حساب ' + account + ' على الخادم؟ سيُمنع تسجيل الدخول والمزامنة وتُلغى جلساته. يبقى ملفه وتقدّمه ونتائجه محفوظة. صفحات المحتوى العامة ستظل متاحة.' : 'رفع الحظر عن حساب ' + account + ' على الخادم؟ يبقى تقدّمه ونتائجه محفوظة، ويحتاج المتدرب إلى تسجيل الدخول من جديد؛ الجلسات الملغاة لن تعود.';
+    if (!confirm(question) || !activeDrawer(context) || !blockingAvailable() || serverAction || blockState(liveAccount(context.id)) !== state) return;
+    const operation = { epoch: sessionEpoch, id: context.id }; serverAction = operation; rosterVersion++; uncertainAccounts.add(context.id); syncBlockControls(); $('#dBlockMsg').textContent = 'جارٍ تنفيذ الطلب على الخادم…';
+    try {
+      const r = await boundedTrainerPost({ action, id: context.id }); if (operation.epoch !== sessionEpoch || !DATA) return;
+      if (r.status === 401 || r.status === 403) { endTrainerSession('انتهت صلاحية دخول المدرب. سجّل الدخول مجددًا للتحقّق من حالة الحساب.'); return; }
+      const responseUser = r.j && r.j.user, valid = r.ok && r.j && r.j.ok === true && responseUser && responseUser.id === context.id && blockState(responseUser) === (targetBlocked ? 'blocked' : 'active') && r.j.blocked === targetBlocked;
+      if (valid) { const current = liveAccount(context.id); if (current) { current.blocked = targetBlocked; current.status = responseUser.status; } uncertainAccounts.delete(context.id); }
+      if (activeDrawer(context)) $('#dBlockMsg').textContent = valid ? (targetBlocked ? 'أكّد الخادم حظر الحساب وإلغاء جلساته؛ تقدّمه ونتائجه محفوظة.' : 'أكّد الخادم رفع الحظر. على المتدرب تسجيل الدخول من جديد.') : 'لم يُؤكَّد تنفيذ الطلب. قد تكون الحالة تغيّرت؛ انتظر تحديث الخادم قبل المحاولة مجددًا.';
+      render();
+    } finally {
+      if (serverAction === operation) { serverAction = null; syncBlockControls(); if (operation.epoch === sessionEpoch && DATA) refresh(); }
+    }
+  }
   function drawer(u) {
-    if (!u) return; const d = $('#drawer'); const p = u.progress || {}; const it = p.items || {};
+    if (!u || !liveAccount(u.id)) return; u = liveAccount(u.id); const context = { id: u.id, epoch: sessionEpoch }; drawerContext = context; const d = $('#drawer'); const p = u.progress || {}; const it = p.items || {};
     d.innerHTML = `<div class="tools"><h3 style="margin:0">${esc(u.name)}</h3><span style="flex:1"></span><button class="btn ghost sm" id="dClose">إغلاق</button></div>
-      <p class="note">${dot(u)}${online(u) ? '<b style="color:#16a34a">متصل الآن</b> · ' : ''}${esc(u.group || 'عام')} · ${esc(u.org || p.org || '')} · <span dir="ltr">${esc(u.phone || '')}</span> · ${esc(u.email || '')}<br>سُجّل ${u.created ? new Date(u.created).toLocaleString('ar-SA') : '—'} · آخر ظهور ${seen(u) ? ago(seen(u)) : '—'}</p>
+      <p class="note"><span id="dPresence">${dot(u)}${online(u) ? '<b style="color:#16a34a">متصل الآن</b> · ' : ''}</span>${esc(u.group || 'عام')} · ${esc(u.org || p.org || '')} · <span dir="ltr">${esc(u.phone || '')}</span> · ${esc(u.email || '')}<br>سُجّل ${u.created ? new Date(u.created).toLocaleString('ar-SA') : '—'} · آخر ظهور <span id="dSeen">${seen(u) ? ago(seen(u)) : '—'}</span></p>
+      <div class="card" id="dBlockArea"><b id="dBlockStatus"></b><p class="note">الحظر يوقف تسجيل الدخول والمزامنة ويلغي الجلسات، ويحفظ الملف والتقدّم والنتائج. رفعه يتطلب تسجيل الدخول من جديد؛ صفحات المحتوى العامة ليست خاصة.</p><span class="note" id="dBlockMsg" role="status"></span></div>
       ${DATA.local ? '' : `<details style="margin:8px 0;border:1px solid var(--line);border-radius:10px;padding:8px 12px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">✏️ تعديل البيانات والمجموعة</summary>
         <div class="tools" style="margin-top:10px">
           <label>الاسم<input id="eName" value="${esc(u.name || '')}"></label>
@@ -310,11 +356,20 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
         <div class="tools" style="margin-top:10px"><input id="nTitle" placeholder="عنوان الإشعار" style="min-width:160px"><input id="nBody" placeholder="نص الإشعار" style="min-width:260px"><button class="btn sm" id="nSend">إرسال</button><span class="note" id="nMsg"></span></div></details>`}
       <div class="kpis" style="margin-bottom:12px"><div class="kpi"><b>🏆 ${pts(u)}</b><span>النقاط</span></div><div class="kpi"><b>⏱ ${fmtTime(tsec(u))}</b><span>وقت التعلّم</span></div><div class="kpi"><b>${pct(u)}%</b><span>التقدّم</span></div><div class="kpi"><b>${(p.scores || {}).examBest || 0}%</b><span>أفضل اختبار</span></div><div class="kpi"><b>${(p.scores || {}).quiz || 0}%</b><span>أسئلة المحاضرات</span></div><div class="kpi"><b>${(p.scores || {}).maturity || '—'}</b><span>نضج مؤسسته /5</span></div></div>
       ${DAYS.map(day => `<h4 style="margin:12px 0 6px;color:var(--navy)">اليوم ${day.n} — ${esc(day.ar)} <small class="note">${+((p.days || {})[day.n]) || 0}%</small></h4><ul class="chk">${day.items.map(i => `<li class="${it[i.k] ? 'ok' : ''}">${it[i.k] ? '✅' : '⬜'} ${esc(i.t)}</li>`).join('')}</ul>`).join('')}
-      <h4 style="margin:12px 0 6px;color:var(--navy)">ساحة الذكاء</h4><p class="note">${Object.entries(((p.scores || {}).arena) || {}).map(([k, v]) => `${k}: ${v}%`).join(' · ') || '—'}</p>
-      <h4 style="margin:12px 0 6px;color:var(--navy)">المصمّمات والنماذج المبنية</h4><p class="note">${(() => { const B = { objective: 'الأهداف والمؤشرات', total: 'الأداء الشامل', loa: 'خطوط المساءلة', iacm: 'نموذج IACM' }; const b = p.builders || []; return b.length ? b.map(k => '✅ ' + (B[k] || k)).join(' · ') : 'لم تُبنَ نماذج بعد'; })()}</p>
-      ${DATA.local ? '' : `<button class="btn ghost sm" id="dDel" style="color:var(--bad)">حذف المتدرب</button>`}`;
-    d.classList.add('on'); $('#dClose').onclick = () => d.classList.remove('on');
-    const del = $('#dDel'); if (del) del.onclick = async () => { if (!confirm('حذف ' + u.name + ' نهائيًا؟')) return; await api({ method: 'POST', body: JSON.stringify({ del: u.id }) }); d.classList.remove('on'); refresh(); };
+      <h4 style="margin:12px 0 6px;color:var(--navy)">ساحة الذكاء</h4><p class="note">${Object.entries(((p.scores || {}).arena) || {}).map(([k, v]) => `${esc(k)}: ${esc(v)}%`).join(' · ') || '—'}</p>
+      <h4 style="margin:12px 0 6px;color:var(--navy)">المصمّمات والنماذج المبنية</h4><p class="note">${(() => { const B = { objective: 'الأهداف والمؤشرات', total: 'الأداء الشامل', loa: 'خطوط المساءلة', iacm: 'نموذج IACM' }; const b = p.builders || []; return b.length ? b.map(k => '✅ ' + esc(B[k] || k)).join(' · ') : 'لم تُبنَ نماذج بعد'; })()}</p>
+      ${DATA.local ? '' : `<button class="btn ghost sm" id="dDel" style="color:var(--bad)">حذف حساب الخادم نهائيًا</button><span class="note" id="dDelMsg" role="status"></span>`}`;
+    d.classList.add('on'); $('#dClose').onclick = () => { if (drawerContext === context) drawerContext = null; d.classList.remove('on'); }; syncBlockControls();
+    const del = $('#dDel'); if (del) del.onclick = async () => {
+      if (!activeDrawer(context) || serverAction || !liveAccount(context.id)) return;
+      if (!confirm('حذف حساب «' + u.name + '» (' + (u.phone || u.id) + ') نهائيًا من الخادم مع بياناته وتقدّمه؟ لا يمكن التراجع عن هذا الحذف. للحفاظ على النتائج استخدم الحظر بدلًا منه.')) return;
+      const operation = { epoch: sessionEpoch, id: context.id }; serverAction = operation; rosterVersion++; syncBlockControls(); $('#dDelMsg').textContent = 'جارٍ الحذف…';
+      try { const r = await boundedTrainerPost({ del: context.id }); if (operation.epoch !== sessionEpoch || !DATA) return;
+        if (r.status === 401 || r.status === 403) { endTrainerSession('انتهت صلاحية دخول المدرب. سجّل الدخول مجددًا للتحقّق من حالة الحساب.'); return; }
+        if (r.ok && r.j && r.j.ok === true && r.j.deleted === context.id) { if (activeDrawer(context)) { drawerContext = null; d.classList.remove('on'); } }
+        else if (activeDrawer(context)) $('#dDelMsg').textContent = 'لم يُؤكَّد الحذف. تحقّق من تحديث الخادم قبل المحاولة مجددًا.';
+      } finally { if (serverAction === operation) { serverAction = null; syncBlockControls(); if (operation.epoch === sessionEpoch && DATA) refresh(); } }
+    };
     const eSave = $('#eSave'); if (eSave) eSave.onclick = async () => {
       const edit = { id: u.id, name: $('#eName').value, group: $('#eGroup').value, org: $('#eOrg').value, role: $('#eRole').value };
       $('#eMsg').textContent = 'جارٍ الحفظ…'; const r = await api({ method: 'POST', body: JSON.stringify({ edit }) });
@@ -329,18 +384,18 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     };
   }
   async function refresh() {
-    if (!DATA || refreshing) return false;
-    const request = { epoch: sessionEpoch }, controller = new AbortController(); refreshing = request;
+    if (!DATA || refreshing || serverAction) return false;
+    const request = { epoch: sessionEpoch, version: rosterVersion }, controller = new AbortController(); refreshing = request;
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
-      const r = await api({ signal: controller.signal }); if (request.epoch !== sessionEpoch || !DATA) return false;
+      const r = await api({ signal: controller.signal, cache: 'no-store' }); if (request.epoch !== sessionEpoch || !DATA || request.version !== rosterVersion) return false;
       if (r.status === 401 || r.status === 403) { endTrainerSession('انتهت صلاحية دخول المدرب. سجّل الدخول مجددًا؛ الأرشيف المحلي ما زال متاحًا.'); return false; }
-      if (r.ok && r.j.ok === true && Array.isArray(r.j.users) && r.j.local !== true) { DATA = r.j; DATA.users = mergeLocal(DATA.users); lastRefresh = Date.now(); refreshError = ''; }
+      if (r.ok && r.j.ok === true && Array.isArray(r.j.users) && r.j.local !== true) { DATA = r.j; DATA.users = mergeLocal(DATA.users); for (const id of uncertainAccounts) if (blockState(liveAccount(id))) uncertainAccounts.delete(id); lastRefresh = Date.now(); refreshError = ''; }
       else { refreshError = 'تعذّر تحديث الخادم؛ البيانات المعروضة قديمة. آخر تحديث ناجح: ' + (lastRefresh ? new Date(lastRefresh).toLocaleString('ar-SA') : 'غير متوفر'); }
       render(); return !refreshError;
-    } finally { clearTimeout(timeout); if (refreshing === request) refreshing = null; }
+    } finally { clearTimeout(timeout); if (refreshing === request) { refreshing = null; if (request.epoch === sessionEpoch && request.version !== rosterVersion && !serverAction && DATA) refresh(); } }
   }
-  function endTrainerSession(message = '') { sessionEpoch++; clearInterval(pollTimer); pollTimer = null; refreshing = null; DATA = null; sessionStorage.removeItem('tf_trainer_pin'); PIN = ''; $('#drawer').innerHTML = ''; $('#drawer').classList.remove('on'); $('#logout').hidden = true; login(); if ($('#msg')) $('#msg').textContent = message; }
+  function endTrainerSession(message = '') { sessionEpoch++; rosterVersion++; serverAction = null; drawerContext = null; uncertainAccounts.clear(); clearInterval(pollTimer); pollTimer = null; refreshing = null; DATA = null; sessionStorage.removeItem('tf_trainer_pin'); PIN = ''; $('#drawer').innerHTML = ''; $('#drawer').classList.remove('on'); $('#logout').hidden = true; login(); if ($('#msg')) $('#msg').textContent = message; }
   function start() {
     $('#logout').hidden = false;
     $('#logout').onclick = () => endTrainerSession();
