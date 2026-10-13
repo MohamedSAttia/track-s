@@ -49,7 +49,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const ARCHIVE_KEY = 'tf_trainer_local', ARCHIVE_MAX_CHARS = 2 * 1024 * 1024, ARCHIVE_MAX_ROWS = 2000;
   function archivePresent() { try { return localStorage.getItem(ARCHIVE_KEY) !== null; } catch (e) { return false; } }
   function archiveEntry() {
-    return '<div class="card" style="background:#FFF7ED;border:1px solid #FED7AA"><div class="tools"><b>أرشيف الأكواد المستوردة</b><span class="note">ملخصات تقدّم محفوظة في هذا المتصفح، مستقلة عن سجل الخادم الحيّ. هذا العرض لا يحذفها ولا ينشئ لها حسابات على الخادم.</span></div><button type="button" class="btn ghost sm" id="archiveOpen">عرض أرشيف الأكواد المستوردة</button></div>';
+    return '<div class="card" style="background:#FFF7ED;border:1px solid #FED7AA"><div class="tools"><b>أرشيف الأكواد المستوردة</b><span class="note">ملخصات تقدّم محفوظة في هذا المتصفح، مستقلة عن سجل الخادم الحيّ. هذا العرض لا يحذفها ولا ينشئ لها حسابات على الخادم.</span></div><button type="button" class="btn ghost sm" id="archiveOpen">عرض أرشيف الأكواد المستوردة</button> <button type="button" class="btn ghost sm" id="previousBackup">نسخة احتياطية للسجلات والتعديلات</button></div>';
   }
   function archiveState() {
     let raw;
@@ -97,7 +97,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     }
     $('#archiveTable').hidden = !state.rows || !state.rows.length; $('#archiveClose').focus();
   }
-  function bindArchive() { const button = $('#archiveOpen'); if (button) button.onclick = showArchive; }
+  function bindArchive() { const button = $('#archiveOpen'); if (button) button.onclick = showArchive; if ($('#previousBackup')) $('#previousBackup').onclick = exportPreviousBackup; }
   function login() {
     $('#main').innerHTML = `${archiveEntry()}<div class="card login"><div style="font-size:44px">🔐</div><h2>دخول المدرب</h2><p class="note">أدخل الرقم السري للمدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><div style="margin-top:12px"><button class="btn gold" id="go">دخول</button></div><div class="note" id="msg" style="margin-top:8px"></div></div>`;
     $('#go').onclick = async () => {
@@ -121,6 +121,87 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const online = u => { const t = Math.max(u.lastSeen || 0, u.progress ? u.progress.at : 0); return t && (Date.now() - t < 150000); };
   const ago = d => { if (!d) return '—'; const m = Math.round((Date.now() - d) / 60000); return m < 2 ? 'الآن' : m < 60 ? `قبل ${m} د` : m < 1440 ? `قبل ${Math.round(m / 60)} س` : d.toLocaleDateString('ar-SA'); };
   const dot = u => online(u) ? '<span title="متصل الآن" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#22C55E;margin-inline-end:5px;box-shadow:0 0 0 3px rgba(34,197,94,.2)"></span>' : '<span title="غير متصل" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#CBD5E1;margin-inline-end:5px"></span>';
+  const PREVIOUS_OVERLAY_KEY = 'tf_trainer_previous_overlay_v1', PREVIOUS_MAX_BYTES = 2 * 1024 * 1024;
+  const previousFields = { name: 200, group: 80, org: 200, role: 120, email: 254 };
+  let showHiddenPrevious = false, closePreviousDialog = null;
+  const previousJson = record => { try { return JSON.stringify(record); } catch (e) { return ''; } };
+  const previousBytes = text => unescape(encodeURIComponent(text)).length;
+  function validPreviousMetadata(value) {
+    return !!(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === Object.keys(previousFields).length && Object.entries(previousFields).every(([key, max]) => typeof value[key] === 'string' && value[key].length <= max) && value.name.trim() && (!value.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email)));
+  }
+  function previousDefaults(row) { return Object.fromEntries(Object.entries(previousFields).map(([key, max]) => [key, snapshotText(row[key], max)])); }
+  function previousOverlayState() {
+    let raw;
+    try {
+      raw = localStorage.getItem(PREVIOUS_OVERLAY_KEY); if (raw === null) return { raw, value: null, entries: [] };
+      if (previousBytes(raw) > PREVIOUS_MAX_BYTES) throw Error();
+      const value = JSON.parse(raw), identities = new Set(); let revisions = 0;
+      if (!value || value.version !== 1 || typeof value.originalArchiveRaw !== 'string' || !Array.isArray(value.entries) || value.entries.length > 2000 || Object.keys(value).some(key => !['version', 'originalArchiveRaw', 'entries'].includes(key))) throw Error();
+      for (const entry of value.entries) {
+        if (!entry || typeof entry.originalRecordJson !== 'string' || !entry.originalRecordJson || entry.originalRecordJson.length > 200000 || identities.has(entry.originalRecordJson) || Object.keys(entry).some(key => !['originalRecordJson', 'revisions'].includes(key)) || !Array.isArray(entry.revisions) || !entry.revisions.length || entry.revisions.length > 200) throw Error();
+        const original = JSON.parse(entry.originalRecordJson); if (!original || typeof original !== 'object' || Array.isArray(original)) throw Error(); identities.add(entry.originalRecordJson);
+        for (const revision of entry.revisions) { if (!revision || !Number.isSafeInteger(revision.at) || revision.at < 0 || typeof revision.hidden !== 'boolean' || !validPreviousMetadata(revision.metadata) || Object.keys(revision).some(key => !['at', 'metadata', 'hidden'].includes(key))) throw Error(); revisions++; }
+      }
+      if (revisions > 5000) throw Error(); return { raw, value, entries: value.entries };
+    } catch (e) { return { raw, entries: [], error: 'تعذّرت قراءة سجل التعديلات المحلية أو تجاوز حدّه الآمن. لم نغيّره؛ نزّل نسخة احتياطية للفحص.' }; }
+  }
+  function previousRevision(state, identity) { return state.entries.find(entry => entry.originalRecordJson === identity)?.revisions.at(-1) || null; }
+  function previousCanWrite() { return !!(navigator.locks && typeof navigator.locks.request === 'function'); }
+  async function savePreviousRecord(row, metadata, hidden, expectedRevision, active) {
+    if (!previousCanWrite()) return { error: 'هذا المتصفح لا يدعم الحفظ المتزامن الآمن. العرض والنسخ الاحتياطي متاحان؛ استخدم متصفحًا حديثًا للتعديل.' };
+    try {
+      return await navigator.locks.request('trackford-previous-record-overlay', async () => {
+        if (!active()) return { cancelled: true };
+        const archive = archiveState(), matches = (archive.rows || []).filter(record => previousJson(record) === row.originalRecordJson);
+        if (archive.error || matches.length !== 1 || !row.originalRecordJson || row.originalRecordJson.length > 200000) return { error: 'تغيّر السجل الأصلي أو أصبح مكررًا بصورة متطابقة. أعد فتح التفاصيل؛ لم يُحفظ تغيير.' };
+        const state = previousOverlayState(); if (state.error) return { error: state.error };
+        const current = previousRevision(state, row.originalRecordJson);
+        if (previousJson(current) !== expectedRevision) return { error: 'عدّلت علامة تبويب أخرى هذا السجل. أعد فتح التفاصيل لمراجعة أحدث نسخة؛ بقيت مسودتك دون حفظ.' };
+        const nextMetadata = metadata || (current ? current.metadata : previousDefaults(matches[0]));
+        if (!validPreviousMetadata(nextMetadata)) return { error: 'راجع الاسم والبريد وحدود طول الحقول. لم يُحفظ التغيير.' };
+        const revision = { at: Date.now(), metadata: { ...nextMetadata }, hidden: !!hidden }, entries = state.entries.map(entry => ({ originalRecordJson: entry.originalRecordJson, revisions: entry.revisions.slice() }));
+        const existing = entries.find(entry => entry.originalRecordJson === row.originalRecordJson);
+        if (existing) { if (existing.revisions.length >= 200) return { error: 'وصل هذا السجل إلى حد سجل التعديلات. نزّل النسخة الاحتياطية؛ لم يُحفظ تغيير.' }; existing.revisions.push(revision); }
+        else entries.push({ originalRecordJson: row.originalRecordJson, revisions: [revision] });
+        if (entries.length > 2000 || entries.reduce((sum, entry) => sum + entry.revisions.length, 0) > 5000) return { error: 'وصل سجل التعديلات إلى حدّه الآمن. لم يُحفظ تغيير.' };
+        const next = { version: 1, originalArchiveRaw: state.value ? state.value.originalArchiveRaw : archive.raw, entries }, encoded = JSON.stringify(next);
+        if (previousBytes(encoded) > PREVIOUS_MAX_BYTES) return { error: 'النسخة تتجاوز مساحة سجل التعديلات المسموحة. لم يُحفظ تغيير.' };
+        if (!active()) return { cancelled: true };
+        localStorage.setItem(PREVIOUS_OVERLAY_KEY, encoded);
+        if (localStorage.getItem(PREVIOUS_OVERLAY_KEY) !== encoded) return { error: 'لم نتمكن من تأكيد الحفظ. أعد فتح التفاصيل للتحقق قبل المحاولة مجددًا.' };
+        return { revision };
+      });
+    } catch (e) { return { error: 'تعذّر حفظ التعديل المحلي؛ قد تكون مساحة التخزين ممتلئة. لم نغيّر الأرشيف الأصلي، وبقيت مسودتك.' }; }
+  }
+  function exportPreviousBackup() {
+    let url = '', link;
+    try { const bundle = { format: 'track-ford-previous-records-backup', version: 1, currentArchiveRaw: localStorage.getItem(ARCHIVE_KEY), overlayRaw: localStorage.getItem(PREVIOUS_OVERLAY_KEY) }; url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' })); link = document.createElement('a'); link.href = url; link.download = 'TrackFord_previous_records_backup_' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(link); link.click(); }
+    catch (e) { alert('تعذّر تنزيل النسخة الاحتياطية. البيانات الأصلية لم تتغيّر.'); }
+    finally { if (link) link.remove(); if (url) setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  }
+  function previousDetails(row) {
+    if (!row) return;
+    const trigger = document.activeElement; if (closePreviousDialog) closePreviousDialog();
+    const state = previousOverlayState(); let revision = row.ambiguous ? null : previousRevision(state, row.originalRecordJson), expected = previousJson(revision), busy = false;
+    const overlay = document.createElement('div'); overlay.id = 'previousDetails'; overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(10,27,61,.7);padding:20px;display:grid;place-items:center;direction:rtl';
+    overlay.innerHTML = '<section class="card" role="dialog" aria-modal="true" aria-labelledby="previousTitle" style="width:min(760px,100%);max-height:90vh;overflow:auto"><div class="tools"><h2 id="previousTitle">سجل سابق</h2><span style="flex:1"></span><button type="button" class="btn ghost sm" id="prevClose">إغلاق</button></div><p class="note">هذا السجل غير مرتبط بحساب الخادم. بيانات التقدّم والدرجات وتاريخ الملخص من الكود الأصلي، ولا نتحقق من صحتها. التعديلات هنا محلية لهذا المتصفح فقط، ولا تغيّر الهوية أو تسجيل الدخول أو ترسل شيئًا إلى الخادم.</p><div class="tools"><label>الاسم <input id="prevName" maxlength="200"></label><label>المجموعة <input id="prevGroup" maxlength="80"></label><label>الجهة <input id="prevOrg" maxlength="200"></label><label>المسمى <input id="prevRole" maxlength="120"></label><label>البريد <input id="prevEmail" type="email" maxlength="254"></label><label>الجوال الأصلي (ثابت لحماية هوية السجل) <input id="prevPhone" readonly dir="ltr"></label><label>المعرّف الأصلي (لا يتغيّر) <input id="prevId" readonly dir="ltr"></label></div><p id="prevProgress" class="note"></p><div class="tools"><button type="button" class="btn gold" id="prevSave">حفظ البيانات محليًا</button><button type="button" class="btn ghost" id="prevVisibility"></button><span class="note" id="prevBlockReason">هذا سجل محلي؛ الحظر الحقيقي يتطلب حسابًا على الخادم.</span></div><p id="prevStatus" class="note" role="status"></p></section>';
+    document.body.appendChild(overlay); const priorOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden';
+    const active = () => $('#previousDetails') === overlay;
+    let closed = false;
+    const close = () => { if (closed) return; closed = true; document.removeEventListener('keydown', onKey); overlay.remove(); document.body.style.overflow = priorOverflow; if (closePreviousDialog === close) closePreviousDialog = null; const back = trigger && trigger.isConnected ? trigger : $('#archiveOpen'); if (back) back.focus({ preventScroll: true }); };
+    const onKey = event => { if (event.key === 'Escape') { event.preventDefault(); close(); return; } if (event.key === 'Tab') { const focusable = [...overlay.querySelectorAll('button,input,select,textarea,[tabindex]')].filter(el => !el.disabled && !el.hidden && el.tabIndex >= 0), first = focusable[0], last = focusable.at(-1); if (event.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && (document.activeElement === last || !overlay.contains(document.activeElement))) { event.preventDefault(); first?.focus(); } } }; document.addEventListener('keydown', onKey); closePreviousDialog = close; $('#prevClose').onclick = close;
+    const values = revision ? revision.metadata : previousDefaults(row.originalRecord);
+    for (const key of Object.keys(previousFields)) $('#prev' + key[0].toUpperCase() + key.slice(1)).value = values[key];
+    $('#prevPhone').value = snapshotText(row.originalRecord.phone, 80); $('#prevId').value = snapshotText(row.originalRecord.id, 160);
+    $('#prevProgress').textContent = 'التقدّم الأصلي: ' + snapshotValue(row.progress.overall, '%') + ' · النقاط الأصلية: ' + snapshotValue(row.progress.points) + ' · وقت الملخص في الكود: ' + (row.progress.at ? new Date(row.progress.at).toLocaleString('ar-SA') : 'غير متوفر في الكود');
+    const canWrite = previousCanWrite() && !row.ambiguous && !state.error;
+    const updateButtons = () => { $('#prevSave').disabled = !canWrite || busy; $('#prevVisibility').disabled = !canWrite || busy; $('#prevVisibility').textContent = revision && revision.hidden ? 'استعادة إلى القائمة' : 'إخفاء من القائمة (قابل للاستعادة)'; };
+    $('#prevStatus').textContent = state.error || (row.ambiguous ? 'هناك نسخ متطابقة تمامًا من هذا السجل؛ التعديل والإخفاء متوقفان لتجنّب تطبيقهما على الشخص الخطأ.' : !previousCanWrite() ? 'المتصفح لا يدعم الحفظ المتزامن الآمن. يمكنك العرض والنسخ الاحتياطي.' : 'ستبقى البيانات الأصلية وجميع التعديلات السابقة محفوظة في النسخة الاحتياطية.'); updateButtons();
+    const persist = async (metadata, hidden) => { if (busy || !canWrite) return; busy = true; updateButtons(); const result = await savePreviousRecord(row, metadata, hidden, expected, active); if (!active()) return; busy = false; if (result.revision) { revision = result.revision; expected = previousJson(revision); $('#prevStatus').textContent = revision.hidden ? 'أُخفي السجل محليًا. يمكن إظهاره واستعادته من زر السجلات المخفية؛ الأصل محفوظ.' : 'حُفظ التعديل المحلي. الأرشيف الأصلي والتقدّم والخادم لم تتغيّر.'; if (DATA) render(); } else $('#prevStatus').textContent = result.error || 'أُلغي الحفظ.'; updateButtons(); };
+    $('#prevSave').onclick = () => { const metadata = Object.fromEntries(Object.keys(previousFields).map(key => [key, $('#prev' + key[0].toUpperCase() + key.slice(1)).value.trim()])); return persist(metadata, !!(revision && revision.hidden)); };
+    $('#prevVisibility').onclick = () => { const hidden = !(revision && revision.hidden); if (hidden && !confirm('إخفاء هذا السجل من القائمة محليًا؟ يمكن استعادته، ولن نحذف البيانات الأصلية أو نغيّر الخادم.')) return; return persist(null, hidden); };
+    $('#prevClose').focus();
+  }
   const liveGroupExists = group => !!(DATA && (DATA.users || []).some(user => (user.group || 'عام') === group));
   function retainDrafts() {
     const values = {};
@@ -137,21 +218,23 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const snapshotNumber = (value, max = 1000000000) => { const n = typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? Number(value) : NaN; return Number.isFinite(n) && n >= 0 && n <= max ? n : null; };
   const snapshotValue = (value, suffix = '') => value === null || value === undefined ? '—' : String(value) + suffix;
   function importedRoster(liveUsers) {
-    const state = archiveState(), serverIds = new Set(liveUsers.map(u => u.id).filter(id => typeof id === 'string' && /^[a-f0-9]{16}$/.test(id)));
+    const state = archiveState(), overlay = previousOverlayState(), identities = new Map(), serverIds = new Set(liveUsers.map(u => u.id).filter(id => typeof id === 'string' && /^[a-f0-9]{16}$/.test(id)));
     let matched = 0;
+    for (const record of state.rows || []) { const identity = previousJson(record); identities.set(identity, (identities.get(identity) || 0) + 1); }
     const rows = [];
     for (const [index, row] of (state.rows || []).entries()) {
       if (typeof row.id === 'string' && /^[a-f0-9]{16}$/.test(row.id) && serverIds.has(row.id)) { matched++; continue; }
+      const identity = previousJson(row), ambiguous = !identity || identities.get(identity) !== 1, revision = ambiguous ? null : previousRevision(overlay, identity), metadata = revision ? revision.metadata : row;
       const p = row.progress && typeof row.progress === 'object' && !Array.isArray(row.progress) ? row.progress : {}, days = p.days && typeof p.days === 'object' ? p.days : {}, scores = p.scores && typeof p.scores === 'object' ? p.scores : {};
       const at = snapshotNumber(p.at, Date.now() + 60000);
-      rows.push({ __tfSource: 'imported', archiveIndex: index, id: snapshotText(row.id, 160), name: snapshotText(row.name) || 'بدون اسم', group: snapshotText(row.group, 80) || 'عام', org: snapshotText(row.org), phone: snapshotText(row.phone, 80), email: snapshotText(row.email, 254),
+      rows.push({ __tfSource: 'imported', archiveIndex: index, originalRecord: row, originalRecordJson: identity, ambiguous, hidden: !!(revision && revision.hidden), role: snapshotText(metadata.role, 120), id: snapshotText(row.id, 160), name: snapshotText(metadata.name) || 'بدون اسم', group: snapshotText(metadata.group, 80) || 'عام', org: snapshotText(metadata.org), phone: snapshotText(row.phone, 80), email: snapshotText(metadata.email, 254),
         progress: { overall: snapshotNumber(p.overall, 100), points: snapshotNumber(p.points), timeSec: snapshotNumber(p.timeSec), at: at && at > 0 ? at : null, days: Object.fromEntries([1, 2, 3, 4, 5].map(day => [day, snapshotNumber(days[day], 100)])), scores: { examBest: snapshotNumber(scores.examBest, 100), maturity: snapshotNumber(scores.maturity, 5) } } });
     }
-    return { rows, matched, error: state.error || '', skipped: state.skipped || 0 };
+    return { allRows: rows, rows: rows.filter(row => showHiddenPrevious || !row.hidden), hiddenCount: rows.filter(row => row.hidden).length, matched, error: [state.error, overlay.error].filter(Boolean).join(' '), skipped: state.skipped || 0 };
   }
   function importedRow(u, index) {
     const p = u.progress, when = p.at ? new Date(p.at).toLocaleString('ar-SA') : 'غير متوفر في الكود';
-    return `<tr data-source="imported" data-archive-row="${u.archiveIndex}" style="background:#FFF7ED"><td>${index + 1}</td><td><b>${esc(u.name)}</b><br><small class="note">نسخة مستوردة غير موثّقة · ليست تحديثًا حيًا</small></td><td>${esc(u.group)}</td><td>${esc(u.org)}</td><td>${snapshotValue(p.points)}</td><td>${p.timeSec === null ? '—' : esc(fmtTime(p.timeSec))}</td><td>${snapshotValue(p.overall, '%')}</td><td>${[1, 2, 3, 4, 5].map(day => snapshotValue(p.days[day], '%')).join(' / ')}</td><td>${snapshotValue(p.scores.examBest, '%')}</td><td>${snapshotValue(p.scores.maturity, '/5')}</td><td><small>وقت الملخص: ${esc(when)}</small></td><td><span class="note">قراءة فقط</span></td></tr>`;
+    return `<tr data-source="imported" data-archive-row="${u.archiveIndex}" style="background:#FFF7ED"><td>${index + 1}</td><td><b>${esc(u.name)}</b><br><small class="note">سجل سابق${u.hidden ? ' · مخفي محليًا' : ''}</small></td><td>${esc(u.group)}</td><td>${esc(u.org)}</td><td>${snapshotValue(p.points)}</td><td>${p.timeSec === null ? '—' : esc(fmtTime(p.timeSec))}</td><td>${snapshotValue(p.overall, '%')}</td><td>${[1, 2, 3, 4, 5].map(day => snapshotValue(p.days[day], '%')).join(' / ')}</td><td>${snapshotValue(p.scores.examBest, '%')}</td><td>${snapshotValue(p.scores.maturity, '/5')}</td><td><small>وقت الملخص: ${esc(when)}</small></td><td><button type="button" class="btn ghost sm" data-previous-index="${u.archiveIndex}">تفاصيل وتعديل</button></td></tr>`;
   }
   function render() {
     if (!DATA) return; const drafts = retainDrafts();
@@ -171,13 +254,13 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
       ${!DATA.local && !refreshError ? '<div class="card" style="background:#ECFDF5;border:1px solid #6EE7B7;display:flex;gap:10px;align-items:center"><b style="color:#047857">✅ متصل بالخادم الحيّ</b><span class="note">المتابعة لحظية والتعديل والإشعارات تعمل — v4.7-LIVE ·' + esc((window.TF_API_BASE||'').replace(/^https?:\/\//,'')) + '</span></div>' : ''}
       ${DATA.offline ? '<div class="warnbox card">ℹ️ أنت في <b>الوضع المحلي</b> (لا يوجد خادم حيّ مضبوط في tf-config.js). استخدم نسخة v4.5-LIVE أو أحدث، أو استورد «كود التقدّم» أدناه.</div>' : ''}
       ${DATA.local && !DATA.offline ? '<div class="warnbox card">⚠️ قاعدة بيانات التسجيل غير مفعّلة بعد. فعّلها من Vercel → Storage → Upstash for Redis (خطوة واحدة) ليظهر هنا كل من سجّل وتقدّمه تلقائيًا. حتى ذلك الحين يمكن استيراد «كود التقدّم» من المتدربين أدناه.</div>' : ''}
-      <div class="card note" id="rosterSources">حسابات الخادم: ${users.length} · نسخ مستوردة مستقلة: ${imported.rows.length}. إحصاءات النشاط والنقاط والمجموعات أدناه تخص الخادم فقط. النسخ المستوردة تتحدّث عند تحديث الكود المحفوظ؛ إعادة تحميل الصفحة لا تجلب تقدّمها من جهاز المتدرب.${imported.matched ? ` أُظهر حساب الخادم بدل ${imported.matched} نسخة ذات معرّف مطابق تمامًا؛ بقيت النسخ في الأرشيف.` : ''}${imported.skipped ? ` يوجد ${imported.skipped} سجل غير صالح للعرض محفوظ في الأرشيف.` : ''}${imported.error ? ` ${esc(imported.error)}` : ''}</div>
-      <div class="kpis"><div class="kpi"><b>${users.length}</b><span>حساب على الخادم</span></div><div class="kpi"><b>${imported.rows.length}</b><span>نسخة مستوردة مستقلة</span></div><div class="kpi"><b style="color:#22C55E">● ${liveN}</b><span>متصل الآن (لحظي)</span></div><div class="kpi"><b>${avg(users.map(pct))}%</b><span>متوسط التقدّم</span></div><div class="kpi"><b>🏆 ${sumBy(users, pts)}</b><span>إجمالي النقاط</span></div><div class="kpi"><b>⏱ ${fmtTime(sumBy(users, tsec))}</b><span>إجمالي وقت التعلّم</span></div><div class="kpi l"><b>${!sched ? 'مفتوح' : (t === 0 ? 'قبل' : t === 6 ? 'انتهت' : t)}</b><span>${!sched ? 'النظام مفتوح لأي تاريخ — حدّد تاريخ بدء لتفعيل الجدول اليومي' : 'يوم الدورة الحالي · تبدأ ' + esc(cfg.start)}</span></div></div>
+      <div class="card note" id="rosterSources">حسابات الخادم: ${users.length} · سجلات سابقة معروضة: ${imported.rows.length} · مخفية محليًا: ${imported.hiddenCount}. إحصاءات النشاط والنقاط والمجموعات أدناه تخص الخادم فقط. النسخ المستوردة تتحدّث عند تحديث الكود المحفوظ؛ إعادة تحميل الصفحة لا تجلب تقدّمها من جهاز المتدرب.${imported.matched ? ` أُظهر حساب الخادم بدل ${imported.matched} نسخة ذات معرّف مطابق تمامًا؛ بقيت النسخ في الأرشيف.` : ''}${imported.skipped ? ` يوجد ${imported.skipped} سجل غير صالح للعرض محفوظ في الأرشيف.` : ''}${imported.error ? ` ${esc(imported.error)}` : ''}</div>
+      <div class="kpis"><div class="kpi"><b>${users.length}</b><span>حساب على الخادم</span></div><div class="kpi"><b>${imported.rows.length}</b><span>سجل سابق معروض</span></div><div class="kpi"><b style="color:#22C55E">● ${liveN}</b><span>متصل الآن (لحظي)</span></div><div class="kpi"><b>${avg(users.map(pct))}%</b><span>متوسط التقدّم</span></div><div class="kpi"><b>🏆 ${sumBy(users, pts)}</b><span>إجمالي النقاط</span></div><div class="kpi"><b>⏱ ${fmtTime(sumBy(users, tsec))}</b><span>إجمالي وقت التعلّم</span></div><div class="kpi l"><b>${!sched ? 'مفتوح' : (t === 0 ? 'قبل' : t === 6 ? 'انتهت' : t)}</b><span>${!sched ? 'النظام مفتوح لأي تاريخ — حدّد تاريخ بدء لتفعيل الجدول اليومي' : 'يوم الدورة الحالي · تبدأ ' + esc(cfg.start)}</span></div></div>
       <div class="card"><div class="tools"><b>متوسط التقدّم حسب اليوم</b><span class="note">يُحتسب من بنود كل يوم (محاضرات، أنشطة، ألعاب، أسئلة، ساحة الذكاء، النظام، المقيّم)</span></div><div class="chart">${DAYS.map(d => `<div style="height:${Math.max(3, dayAvg(d.n))}%"><b>${dayAvg(d.n)}%</b><span>اليوم ${d.n}</span></div>`).join('')}</div><div style="height:26px"></div></div>
       <div class="card"><div class="tools"><b>المجموعات</b><span class="note">النقاط والوقت مجمّعة لكل مجموعة — مرتّبة حسب النقاط</span></div><div class="grp">${groups.slice().sort((a, b) => sumBy(users.filter(u => (u.group || 'عام') === b), pts) - sumBy(users.filter(u => (u.group || 'عام') === a), pts)).map(g => { const gu = users.filter(u => (u.group || 'عام') === g); const gp = sumBy(gu, pts); return `<div class="g"><h4>${esc(g)} <small class="note">(${gu.length})</small></h4><div class="bar ${cls(avg(gu.map(pct)))}"><i style="width:${avg(gu.map(pct))}%"></i></div><div class="note">متوسط التقدّم ${avg(gu.map(pct))}% · 🏆 <b>${gp}</b> نقطة · ⏱ ${fmtTime(sumBy(gu, tsec))}<br>أفضل متدرب: ${esc((gu.slice().sort((a, b) => pts(b) - pts(a))[0] || {}).name || '—')} · نقاط التحدي: ${gu.reduce((a, u) => a + (+((((u.progress || {}).scores || {}).team || {})[g]) || 0), 0)}</div></div>`; }).join('') || '<span class="note">لا توجد مجموعات بعد.</span>'}</div></div>
-      <div class="card"><div class="tools"><b>المتدربون (${f.length})</b><select id="fg"><option value="">كل المجموعات</option>${filterGroups.map(g => `<option ${FILTER.g === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select><input id="fq" placeholder="بحث بالاسم أو الجهة أو الجوال" value="${esc(FILTER.q)}"><span style="flex:1"></span><button class="btn ghost sm" id="csv">⬇ CSV (المعروض)</button><button class="btn ghost sm" id="print">🖨 طباعة</button><button class="btn sm" id="refresh">↻ تحديث</button></div>
+      <div class="card"><div class="tools"><b>المتدربون (${f.length})</b>${imported.hiddenCount ? `<button type="button" class="btn ghost sm" id="previousHiddenToggle">${showHiddenPrevious ? 'إخفاء السجلات المخفية' : 'إظهار السجلات المخفية'} (${imported.hiddenCount})</button>` : ''}<select id="fg"><option value="">كل المجموعات</option>${filterGroups.map(g => `<option ${FILTER.g === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select><input id="fq" placeholder="بحث بالاسم أو الجهة أو الجوال" value="${esc(FILTER.q)}"><span style="flex:1"></span><button class="btn ghost sm" id="csv">⬇ CSV (المعروض)</button><button class="btn ghost sm" id="print">🖨 طباعة</button><button class="btn sm" id="refresh">↻ تحديث</button></div>
         <div style="overflow:auto;max-height:70vh"><table><thead><tr><th>#</th><th>الاسم</th><th>المجموعة</th><th>الجهة</th><th>🏆 النقاط</th><th>⏱ الوقت</th><th>التقدّم</th><th>الأيام 1–5</th><th>أفضل اختبار</th><th>النضج</th><th>آخر نشاط / وقت الملخص</th><th></th></tr></thead><tbody>
-        ${f.slice().sort((a, b) => pts(b) - pts(a)).map((u, i) => { if (u.__tfSource === 'imported') return importedRow(u, i); const p = pct(u), d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return `<tr data-source="server"><td>${i + 1}</td><td>${dot(u)}<b>${esc(u.name)}</b><br><small class="note">حساب على الخادم</small>${u.role ? `<br><small class="note">${esc(u.role)}</small>` : ''}</td><td>${esc(u.group || 'عام')}</td><td>${esc(u.org || (u.progress || {}).org || '')}</td><td><b style="color:var(--gold);font-size:15px">${pts(u)}</b></td><td>${fmtTime(tsec(u))}</td><td><div class="bar ${cls(p)}"><i style="width:${p}%"></i></div><small>${p}%</small></td><td><div class="days">${[1, 2, 3, 4, 5].map(n => `<span class="${cls(+d[n] || 0)}" title="اليوم ${n}: ${+d[n] || 0}%">${+d[n] || 0}</span>`).join('')}</div></td><td>${sc.examBest ? sc.examBest + '%' : '—'}<br><small class="note">${sc.examAttempts || 0} محاولة</small></td><td>${sc.maturity ? sc.maturity + '/5' : '—'}</td><td>${ago(seen(u))}</td><td><button class="btn ghost sm" data-u="${esc(u.id)}">تفاصيل</button></td></tr>`; }).join('') || '<tr><td colspan="12" class="note">لم يسجّل أحد بعد — شارك رابط المنصّة مع المتدربين.</td></tr>'}
+        ${f.slice().sort((a, b) => pts(b) - pts(a)).map((u, i) => { if (u.__tfSource === 'imported') return importedRow(u, i); const p = pct(u), d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return `<tr data-source="server"><td>${i + 1}</td><td>${dot(u)}<b>${esc(u.name)}</b><br><small class="note">حساب على الخادم</small>${u.role ? `<br><small class="note">${esc(u.role)}</small>` : ''}</td><td>${esc(u.group || 'عام')}</td><td>${esc(u.org || (u.progress || {}).org || '')}</td><td><b style="color:var(--gold);font-size:15px">${pts(u)}</b></td><td>${fmtTime(tsec(u))}</td><td><div class="bar ${cls(p)}"><i style="width:${p}%"></i></div><small>${p}%</small></td><td><div class="days">${[1, 2, 3, 4, 5].map(n => `<span class="${cls(+d[n] || 0)}" title="اليوم ${n}: ${+d[n] || 0}%">${+d[n] || 0}</span>`).join('')}</div></td><td>${sc.examBest ? sc.examBest + '%' : '—'}<br><small class="note">${sc.examAttempts || 0} محاولة</small></td><td>${sc.maturity ? sc.maturity + '/5' : '—'}</td><td>${ago(seen(u))}</td><td><button class="btn ghost sm" data-u="${esc(u.id)}">تفاصيل</button></td></tr>`; }).join('') || '<tr><td colspan="12" class="note">لا توجد سجلات ظاهرة تطابق الاختيار الحالي. راجع المرشّحات أو السجلات المخفية.</td></tr>'}
         </tbody></table></div></div>
       <div class="card"><div class="tools"><b>🔔 إرسال إشعار / تنبيه</b><span class="note">يصل المتدربين فورًا داخل المنصّة (شبه لحظي)</span></div>
         <div class="tools"><select id="nTo"><option value="all">كل المتدربين</option>${groups.map(g => `<option value="group:${esc(g)}">مجموعة: ${esc(g)}</option>`).join('')}</select><input id="bTitle" placeholder="عنوان الإشعار" style="min-width:160px"><input id="bBody" placeholder="نص الإشعار" style="min-width:300px"><button class="btn gold sm" id="bSend">إرسال</button><span class="note" id="bMsg"></span></div>
@@ -193,7 +276,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     $('#csv').onclick = () => {
       const rows = [['المصدر', 'الاسم', 'المجموعة', 'الجهة', 'الجوال', 'البريد', 'النقاط', 'الوقت(دقيقة)', 'التقدّم%', 'يوم1', 'يوم2', 'يوم3', 'يوم4', 'يوم5', 'أفضل اختبار', 'النضج', 'آخر نشاط للخادم', 'وقت الملخص المستورد']].concat(f.slice().sort((a, b) => pts(b) - pts(a)).map(u => {
         const imported = u.__tfSource === 'imported', p = u.progress || {}, d = p.days || {}, sc = p.scores || {};
-        return [imported ? 'نسخة مستوردة غير موثّقة' : 'حساب على الخادم', u.name, u.group, u.org, u.phone, u.email, imported ? snapshotValue(p.points) : pts(u), imported ? (p.timeSec === null ? '—' : Math.round(p.timeSec / 60)) : Math.round(tsec(u) / 60), imported ? snapshotValue(p.overall) : pct(u), ...[1, 2, 3, 4, 5].map(day => imported ? snapshotValue(d[day]) : (d[day] || 0)), imported ? snapshotValue(sc.examBest) : (sc.examBest || ''), imported ? snapshotValue(sc.maturity) : (sc.maturity || ''), imported ? '' : (seen(u) ? seen(u).toISOString() : ''), imported ? (p.at ? new Date(p.at).toISOString() : 'غير متوفر في الكود') : ''];
+        return [imported ? 'سجل سابق (غير مرتبط بالخادم)' : 'حساب على الخادم', u.name, u.group, u.org, u.phone, u.email, imported ? snapshotValue(p.points) : pts(u), imported ? (p.timeSec === null ? '—' : Math.round(p.timeSec / 60)) : Math.round(tsec(u) / 60), imported ? snapshotValue(p.overall) : pct(u), ...[1, 2, 3, 4, 5].map(day => imported ? snapshotValue(d[day]) : (d[day] || 0)), imported ? snapshotValue(sc.examBest) : (sc.examBest || ''), imported ? snapshotValue(sc.maturity) : (sc.maturity || ''), imported ? '' : (seen(u) ? seen(u).toISOString() : ''), imported ? (p.at ? new Date(p.at).toISOString() : 'غير متوفر في الكود') : ''];
       }));
       const cell = value => { let text = String(value == null ? '' : value); if (/^[\s]*[=+@-]|^[\t\r\n]/.test(text)) text = "'" + text; return '"' + text.replace(/"/g, '""') + '"'; };
       const csv = '\ufeff' + rows.map(row => row.map(cell).join(',')).join('\n'), link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); link.download = 'TrackFord_displayed_trainees.csv'; link.click();
@@ -203,6 +286,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     const rgGo = $('#rgGo'); if (rgGo) rgGo.onclick = async () => { const from = $('#rgFrom').value, to = $('#rgTo').value.trim(); if (!liveGroupExists(from)) { $('#rgMsg').textContent = 'المجموعة لم تعد ضمن مجموعات الخادم الحالية. اختر مجموعة متاحة؛ بقيت مسودتك.'; return; } if (!to) { $('#rgMsg').textContent = 'اكتب الاسم الجديد.'; return; } if (!confirm(`نقل كل أعضاء «${from}» إلى «${to}»؟`)) return; $('#rgMsg').textContent = 'جارٍ…'; const r = await api({ method: 'POST', body: JSON.stringify({ renameGroup: { from, to } }) }); if (r.ok && r.j.ok) { $('#rgMsg').textContent = `✅ نُقل ${r.j.moved} متدرب`; refresh(); } else { $('#rgMsg').textContent = 'تعذّر — فعّل قاعدة البيانات.'; } };
     document.querySelectorAll('[data-u]').forEach(b => b.onclick = () => drawer(users.find(u => u.id === b.dataset.u)));
     const impGo = $('#impGo'); if (impGo) impGo.onclick = () => { try { const o = JSON.parse(decodeURIComponent(escape(atob($('#impCode').value.trim())))); const loc = JSON.parse(localStorage.getItem('tf_trainer_local') || '[]'); const i = loc.findIndex(x => x.id === o.id); if (i >= 0) loc[i] = o; else loc.push(o); localStorage.setItem('tf_trainer_local', JSON.stringify(loc)); DATA.users = mergeLocal(DATA.users); render(); } catch (e) { $('#impList').textContent = 'الكود غير صالح.'; } };
+    document.querySelectorAll('[data-previous-index]').forEach(button => button.onclick = () => previousDetails(imported.allRows.find(row => row.archiveIndex === Number(button.dataset.previousIndex))));
+    if ($('#previousHiddenToggle')) $('#previousHiddenToggle').onclick = () => { showHiddenPrevious = !showHiddenPrevious; render(); };
     bindArchive(); restoreDrafts(drafts);
   }
   function mergeLocal(users) { return users; } // Imported snapshots are displayed separately by importedRoster().
@@ -217,7 +302,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
           <label>الاسم<input id="eName" value="${esc(u.name || '')}"></label>
           <label>المجموعة<select id="eGroup">${grpOptions(u.group)}</select></label>
           <label>الجهة<input id="eOrg" value="${esc(u.org || '')}"></label>
-          <label>الجوال<input id="ePhone" dir="ltr" value="${esc(u.phone || '')}"></label>
+          <label>الجوال (هوية تسجيل الدخول، لا يُعدّل هنا)<input id="ePhone" readonly dir="ltr" value="${esc(u.phone || '')}"></label>
           <label>المسمّى<input id="eRole" value="${esc(u.role || '')}"></label>
           <button class="btn gold sm" id="eSave">💾 حفظ التعديلات</button><span class="note" id="eMsg"></span>
         </div></details>
@@ -231,7 +316,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     d.classList.add('on'); $('#dClose').onclick = () => d.classList.remove('on');
     const del = $('#dDel'); if (del) del.onclick = async () => { if (!confirm('حذف ' + u.name + ' نهائيًا؟')) return; await api({ method: 'POST', body: JSON.stringify({ del: u.id }) }); d.classList.remove('on'); refresh(); };
     const eSave = $('#eSave'); if (eSave) eSave.onclick = async () => {
-      const edit = { id: u.id, name: $('#eName').value, group: $('#eGroup').value, org: $('#eOrg').value, phone: $('#ePhone').value, role: $('#eRole').value };
+      const edit = { id: u.id, name: $('#eName').value, group: $('#eGroup').value, org: $('#eOrg').value, role: $('#eRole').value };
       $('#eMsg').textContent = 'جارٍ الحفظ…'; const r = await api({ method: 'POST', body: JSON.stringify({ edit }) });
       if (r.ok && r.j.ok) { $('#eMsg').textContent = '✅ حُفظت'; Object.assign(u, edit); refresh(); }
       else if (r.status === 404 || (r.j && r.j.error === 'not_found')) { $('#eMsg').innerHTML = 'هذا المتدرب غير موجود على الخادم الحيّ (بيانات قديمة في المتصفح). اطلب منه التسجيل من بوابة المتدربين، أو امسح البيانات القديمة من الصفحة الرئيسية.'; }
@@ -262,7 +347,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     clearInterval(pollTimer); pollTimer = setInterval(() => { if (!document.hidden && document.visibilityState === 'visible') return refresh(); }, 15000);
   }
   document.addEventListener('visibilitychange', () => { if (DATA && !document.hidden && document.visibilityState === 'visible') refresh(); });
-  window.addEventListener('storage', event => { if (DATA && event.key === ARCHIVE_KEY) render(); });
+  window.addEventListener('storage', event => { if (DATA && (event.key === ARCHIVE_KEY || event.key === PREVIOUS_OVERLAY_KEY)) render(); });
 
   (async () => { if (PIN) { const r = await api(); if (r.ok && r.j.ok === true && Array.isArray(r.j.users) && r.j.local !== true) { DATA = r.j; lastRefresh = Date.now(); refreshError = ''; DATA.users = mergeLocal(DATA.users || []); render(); start(); } else login(); } else login(); })();
 })();
