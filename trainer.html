@@ -159,6 +159,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     const groups = [...new Set(users.map(u => u.group || 'عام'))].sort();
     const imported = importedRoster(users), combined = users.map(u => ({ ...u, __tfSource: 'server' })).concat(imported.rows);
     const filterGroups = [...new Set([...groups, ...imported.rows.map(u => u.group)])].sort();
+    if (FILTER.g && !filterGroups.includes(FILTER.g)) FILTER.g = '';
     const f = combined.filter(u => (!FILTER.g || (u.group || 'عام') === FILTER.g) && (!FILTER.q || (u.name + ' ' + (u.org || '') + ' ' + (u.phone || '')).includes(FILTER.q)));
     const avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0;
     const active = users.filter(u => seen(u) && Date.now() - seen(u) < 86400000).length;
