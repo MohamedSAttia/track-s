@@ -1,51 +1,12 @@
 /* Track Ford GRC — مسار الدورة الموحّد + تسجيل المتدربين + مزامنة التقدّم
    - الدورة 5 أيام (7–10 مساءً). يظهر للمتدرب يوم الدورة الحالي فقط (والأيام السابقة للمراجعة)، والأيام القادمة مقفلة.
-   - التسجيل حقيقي عبر /api/reg (Railway). يتطلب التسجيل والمزامنة اتصالًا بالخادم؛ وضع الضيف للتصفح فقط.
+   - التسجيل حقيقي عبر /api/reg (Vercel KV). بدون قاعدة بيانات يعمل محليًا ويعرض ذلك بوضوح.
    - التقدّم يُجمع تلقائيًا من كل الوحدات (محاضرات، أنشطة، ألعاب، أسئلة، ساحة الذكاء، النظام، المقيّم) ويُزامَن مع لوحة المدرب. */
 (function () {
   'use strict';
   const LS_U = 'tf_user', LS_C = 'tf_course', LS_CFG = 'tf_course_cfg';
-  let currentUser = null, restored = false, authenticated = false, authEpoch = 0;
-  let resolveSessionReady; const sessionReady = new Promise(resolve => { resolveSessionReady = resolve; });
-  let restoredSnapshot = {}, workspaceAllowed = false, syncMessage = '', guestMode = false;
-  const rawRead = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (e) { return d; } };
-  const scopedKey = k => ['tf_course', 'tf_time'].includes(k) ? k + ':' + encodeURIComponent(currentUser ? currentUser.id : 'guest') : k;
-  const artifactKey = k => /^(grcp(LQ|D1|ERP|Game|Arena|Hist)|tf-grc-navigator|alsaeedGRC|tf_org_v1|tf_builders)/.test(k);
-  const rd = (k, d) => artifactKey(k) && !workspaceAllowed ? d : rawRead(scopedKey(k), d);
-  const wr = (k, v) => { try { localStorage.setItem(scopedKey(k), JSON.stringify(v)); } catch (e) {} };
-  function bindWorkspace() {
-    const owner = localStorage.getItem('tf_workspace_owner');
-    const hasLegacyWork = Object.keys(localStorage).some(k => artifactKey(k) || k === 'tf_course' || k === 'tf_time');
-    workspaceAllowed = owner === currentUser.id || (!owner && !hasLegacyWork);
-    if (workspaceAllowed) localStorage.setItem('tf_workspace_owner', currentUser.id);
-  }
-  function canClaimWorkspace() { try { return authenticated && restored && !workspaceAllowed && !localStorage.getItem('tf_workspace_owner'); } catch (e) { return false; } }
-  function claimWorkspace() {
-    if (!canClaimWorkspace()) return false;
-    if (!confirm('هل تؤكد أن جميع أعمال هذا المتصفح تخصك، وتريد ربط ملخص تقدّمها بحساب ' + currentUser.name + ' ومشاركته مع المدرب؟ سيبقى محتوى الملفات على هذا الجهاز.')) return false;
-    const old = rawRead(LS_C, {}), current = st();
-    wr(LS_C, { ...old, ...current, done: { ...(old.done || {}), ...(current.done || {}) }, seen: { ...(old.seen || {}), ...(current.seen || {}) } });
-    wr('tf_time', { sec: Math.max(nonnegative((rawRead('tf_time', {}) || {}).sec), nonnegative(timeState().sec)) });
-    localStorage.setItem('tf_workspace_owner', currentUser.id); workspaceAllowed = true; render(); sync(true); return true;
-  }
-  const nonnegative = v => Number.isFinite(Number(v)) ? Math.max(0, Number(v)) : 0;
-  function mergeSnapshot(a = {}, b = {}) {
-    const result = { ...a, ...b };
-    for (const key of ['overall', 'points', 'timeSec']) result[key] = Math.max(nonnegative(a[key]), nonnegative(b[key]));
-    for (const key of ['days', 'items']) {
-      result[key] = { ...(a[key] || {}) };
-      for (const [k, v] of Object.entries(b[key] || {})) result[key][k] = key === 'items' ? !!(result[key][k] || v) : Math.max(nonnegative(result[key][k]), nonnegative(v));
-    }
-    result.scores = { ...(a.scores || {}), ...(b.scores || {}) };
-    for (const k of ['examBest', 'examAttempts', 'quiz', 'maturity']) result.scores[k] = Math.max(nonnegative((a.scores || {})[k]), nonnegative((b.scores || {})[k]));
-    for (const k of ['arena', 'team']) {
-      result.scores[k] = { ...((a.scores || {})[k] || {}) };
-      for (const [name, val] of Object.entries((b.scores || {})[k] || {})) result.scores[k][name] = Math.max(nonnegative(result.scores[k][name]), nonnegative(val));
-    }
-    result.builders = [...new Set([...(Array.isArray(a.builders) ? a.builders : []), ...(Array.isArray(b.builders) ? b.builders : [])])];
-    result.org = b.org || a.org || '';
-    return result;
-  }
+  const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (e) { return d; } };
+  const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const page = (location.pathname.split('/').pop() || 'index.html').replace(/\.html?$/, '') || 'index';
   const A = 'academy.html', S = 'system.html', N = 'navigator.html';
@@ -117,84 +78,20 @@
   function dayOfLecture(n) { const d = DAYS.find(d => d.lectures.includes(n)); return d ? d.n : 5; }
 
   /* ───── المستخدم ───── */
-  const user = () => currentUser;
-  function setUser(u) {
-    if (!authenticated || !currentUser || !u || u.id !== currentUser.id) return;
-    currentUser = { ...currentUser, group: u.group || currentUser.group };
-  }
-  const validCredential = u => !!(u && !u.local && typeof u.id === 'string' && u.id && typeof u.token === 'string' && /^[a-f0-9]{40}$/i.test(u.token));
-  function saveIdentity() {
-    if (!validCredential(currentUser)) return;
-    try { localStorage.setItem(LS_U, JSON.stringify(currentUser)); localStorage.setItem('grcpUser', JSON.stringify({ name: currentUser.name, id: currentUser.id })); } catch (e) {}
-  }
-  async function api(path, opt = {}) {
-    try {
-      const { authUser = currentUser, ...request } = opt;
-      const headers = { 'content-type': 'application/json', ...(validCredential(authUser) ? { Authorization: 'Bearer ' + authUser.token, 'X-Learner-Id': authUser.id } : {}), ...(request.headers || {}) };
-      const r = await fetch((window.TF_API_BASE || '') + path, { cache: 'no-store', ...request, headers });
-      const j = await r.json().catch(() => ({})); return { ok: r.ok && j.ok === true, status: r.status, j };
-    } catch (e) { return { ok: false, status: 0, j: {} }; }
-  }
-  function validIdentity(j, id) { return j && j.authenticated === true && j.learnerId === id && j.user && j.user.id === id; }
-  function refreshProfile(j) {
-    if (!currentUser || !validIdentity(j, currentUser.id)) return false;
-    for (const key of ['name', 'phone', 'email', 'group', 'org', 'role', 'status']) if (typeof j.user[key] === 'string') currentUser[key] = j.user[key];
-    saveIdentity(); return true;
-  }
-  function clearSession(message, preserveSharedIdentity = false) {
-    authEpoch++; resetNotifs(); authenticated = false; restored = false; currentUser = null; restoredSnapshot = {}; workspaceAllowed = false; syncMessage = message || '';
-    try { if (!preserveSharedIdentity) { localStorage.removeItem(LS_U); localStorage.removeItem('grcpUser'); } } catch (e) {}
-    render();
-  }
-  let restoring = null;
-  function restoreProgress(epoch) {
-    if (restoring && restoring.epoch === epoch) return restoring.promise;
-    const record = { epoch };
-    record.promise = loadProgress(epoch).finally(() => { if (restoring === record) restoring = null; });
-    restoring = record; return record.promise;
-  }
-  async function loadProgress(epoch) {
-    const r = await api('/api/progress');
-    if (epoch !== authEpoch) return false;
-    if (r.status === 401 || r.status === 403) { clearSession('انتهت الجلسة أو أُوقف الحساب. سجّل الدخول مجددًا.'); return false; }
-    if (r.ok && (!validIdentity(r.j, currentUser.id) || !Object.hasOwn(r.j, 'snapshot'))) { clearSession('انتهت الجلسة. سجّل الدخول مجددًا.'); return false; }
-    if (!r.ok) { syncMessage = 'تعذّر استعادة التقدّم من الخادم. المزامنة متوقفة حتى إعادة المحاولة.'; render(); return false; }
-    refreshProfile(r.j);
-    if (r.j.config) wr(LS_CFG, Object.assign(cfg(), r.j.config));
-    restoredSnapshot = mergeSnapshot(rawRead('tf_progress:' + currentUser.id, {}), r.j.snapshot || {});
-    wr('tf_progress:' + currentUser.id, restoredSnapshot);
-    const c = st(); c.done = c.done || {}; c.seen = c.seen || {};
-    for (const [key, value] of Object.entries(restoredSnapshot.items || {})) if (value) { if (/^lec\d+$/.test(key)) c.seen[key] = c.seen[key] || Date.now(); else c.done[key] = c.done[key] || Date.now(); }
-    for (const key of restoredSnapshot.builders || []) c.done['build_' + key] = c.done['build_' + key] || Date.now();
-    wr(LS_C, c); wr('tf_time', { sec: Math.max(timeState().sec || 0, restoredSnapshot.timeSec || 0) });
-    restored = true; syncMessage = ''; render(); return true;
-  }
-  async function acceptSession(j, savedToken) {
-    const token = j.token || savedToken, candidate = j.user && { ...j.user, token };
-    if (!validCredential(candidate) || !validIdentity(j, candidate.id)) return false;
-    authEpoch++; resetNotifs(); const epoch = authEpoch; authenticated = true; restored = false; currentUser = candidate; restoredSnapshot = {};
-    saveIdentity();
-    try { bindWorkspace(); } catch (e) { workspaceAllowed = false; }
-    return restoreProgress(epoch);
-  }
-  async function restoreSession() {
-    const saved = rawRead(LS_U, null), epoch = authEpoch;
-    const r = await api('/api/reg', { authUser: validCredential(saved) ? saved : null });
-    if (epoch !== authEpoch) return false;
-    if (r.ok && validCredential(saved) && validIdentity(r.j, saved.id)) return acceptSession(r.j, saved.token);
-    if (!r.ok && r.status !== 401 && r.status !== 403) { syncMessage = 'تعذّر الاتصال بخادم الحسابات. أعد المحاولة؛ بيانات الدخول المحفوظة لم تُحذف.'; render(); return false; }
-    clearSession(r.ok && !validCredential(saved) ? '' : 'انتهت الجلسة أو تغيّر الحساب. سجّل الدخول مجددًا.'); return false;
-  }
+  const user = () => rd(LS_U, null);
+  function setUser(u) { wr(LS_U, u); try { if (u) localStorage.setItem('grcpUser', JSON.stringify({ name: u.name, email: u.email || '', phone: u.phone || '', org: u.org || '', since: u.created || Date.now(), id: u.id })); } catch (e) {} }
+  async function api(path, opt) { const r = await fetch((window.TF_API_BASE||'')+path, Object.assign({ headers: { 'content-type': 'text/plain' } }, opt)); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; }
+  let serverOk = null;
+  async function probe() { if (serverOk !== null) return serverOk; try { const r = await api('/api/reg'); serverOk = !!(r.ok && r.j.ok); } catch (e) { serverOk = false; } return serverOk; }
 
   /* ───── التقدّم ───── */
-  function itemDone(i) { return !!((restoredSnapshot.items || {})[i.k] || (st().done || {})[i.k] || i.chk()); }
-  function dayProgress(d) { const items = d.items; const done = items.filter(i => { try { return itemDone(i); } catch (e) { return false; } }).length; return { done, total: items.length, pct: Math.round(done / items.length * 100) }; }
+  function dayProgress(d) { const items = d.items; const done = items.filter(i => { try { return !!i.chk(); } catch (e) { return false; } }).length; return { done, total: items.length, pct: Math.round(done / items.length * 100) }; }
   /* ───── الوقت المستغرق في الدورة (نشط فقط) ───── */
   const LS_T = 'tf_time';
   const timeState = () => rd(LS_T, { sec: 0 }) || { sec: 0 };
   function addTime(s) { const t = timeState(); t.sec = (t.sec || 0) + s; wr(LS_T, t); }
   let _timeLast = Date.now();
-  function tickTime() { const now = Date.now(); if (typeof document !== 'undefined' && document.visibilityState === 'visible' && page !== 'trainer' && authenticated && restored) { const dt = Math.min(60, (now - _timeLast) / 1000); if (dt > 0.5) addTime(dt); } _timeLast = now; }
+  function tickTime() { const now = Date.now(); if (typeof document !== 'undefined' && document.visibilityState === 'visible') { const dt = Math.min(60, (now - _timeLast) / 1000); if (dt > 0.5) addTime(dt); } _timeLast = now; }
   try { setInterval(tickTime, 15000); document.addEventListener('visibilitychange', () => { _timeLast = Date.now(); }); } catch (e) {}
 
   /* ───── النقاط (بحسب الأداء) ───── */
@@ -214,7 +111,7 @@
 
   function snapshot() {
     const days = {}; DAYS.forEach(d => { days[d.n] = dayProgress(d).pct; });
-    const items = {}; DAYS.forEach(d => d.items.forEach(i => { try { items[i.k] = itemDone(i); } catch (e) { items[i.k] = false; } }));
+    const items = {}; DAYS.forEach(d => d.items.forEach(i => { try { items[i.k] = !!i.chk(); } catch (e) { items[i.k] = false; } }));
     const t = today(); const activeDays = DAYS.filter(d => d.n <= Math.max(1, Math.min(5, t || 1)));
     const overall = Math.round(activeDays.reduce((a, d) => a + days[d.n], 0) / activeDays.length);
     const nav = rd('tf-grc-navigator-v1'); const m = nav && !nav.example ? Object.values(nav.a || {}).filter(Boolean) : [];
@@ -224,93 +121,50 @@
     snap.timeSec = Math.round(timeState().sec || 0);
     const doneC = (rd(LS_C, {}) || {}).done || {};
     snap.builders = Object.keys(doneC).filter(k => /^build_/.test(k)).map(k => k.replace('build_', ''));
-    const merged = mergeSnapshot(restoredSnapshot, snap);
-    merged.points = Math.max(merged.points, computePoints(merged));
-    return merged;
+    snap.points = computePoints(snap);
+    return snap;
   }
   let lastSync = 0, syncing = false;
-  async function sync(force, keepalive = false) {
-    if (!authenticated || !currentUser || !validCredential(currentUser) || page === 'trainer') return false;
-    if ((!force && (document.hidden || document.visibilityState !== 'visible')) || syncing || (!force && Date.now() - lastSync < 15000)) return false;
-    syncing = true; const epoch = authEpoch;
-    try {
-      if (!restored && !await restoreProgress(epoch)) return false;
-      if (epoch !== authEpoch || !restored) return false;
-      const outgoing = snapshot();
-      const r = await api('/api/progress', { method: 'POST', keepalive, body: JSON.stringify({ snapshot: outgoing }) });
-      if (epoch !== authEpoch) return false;
-      if (r.status === 401 || r.status === 403) { clearSession('انتهت الجلسة أو أُوقف الحساب. سجّل الدخول مجددًا.'); return false; }
-      if (r.ok && !validIdentity(r.j, currentUser.id)) { clearSession('تغيّر الحساب. سجّل الدخول مجددًا.', true); return false; }
-      if (r.ok) { refreshProfile(r.j); lastSync = Date.now(); currentUser.lastSync = lastSync; restoredSnapshot = mergeSnapshot(outgoing, r.j.snapshot || {}); wr('tf_progress:' + currentUser.id, restoredSnapshot); syncMessage = ''; }
-      else syncMessage = 'تعذّرت المزامنة. سيُعاد إرسال التقدّم عند عودة الاتصال.';
-      render(); return r.ok;
-    } finally { syncing = false; }
+  async function sync(force) {
+    const u = user(); if (!u || !u.token || u.local) return false;
+    if (!force && Date.now() - lastSync < 20000) return false;   // مزامنة شبه لحظية (20ث) + نبضة حضور
+    if (syncing) return false; syncing = true;
+    try { const r = await api('/api/progress', { method: 'POST', body: JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() }) }); if (r.ok) { lastSync = Date.now(); u.lastSync = lastSync; wr(LS_U, u); } return r.ok; } catch (e) { return false; } finally { syncing = false; }
   }
-  /* Trainer notices use only the verified Railway learner session. Cursors never cross accounts. */
-  let notificationRequest = null, notificationCursor = '', notificationSince = 0, notificationOwner = '', notificationIds = new Set();
-  const notificationTimestamp = value => { const n = Number(value); return Number.isSafeInteger(n) && n >= 0 ? n : 0; };
-  const notificationKey = id => 'tf_notif_cursor:' + encodeURIComponent(id);
-  function resetNotifs() {
-    notificationRequest = null; notificationCursor = ''; notificationSince = 0; notificationOwner = ''; notificationIds = new Set();
-    const box = document.getElementById('tfNotifs'); if (box) box.remove();
-  }
-  function notifBox() {
-    let box = document.getElementById('tfNotifs');
-    if (!box) { box = document.createElement('div'); box.id = 'tfNotifs'; box.setAttribute('role', 'status'); box.setAttribute('aria-live', 'polite'); box.style.cssText = 'position:fixed;top:14px;inset-inline-end:14px;z-index:2147483600;display:flex;flex-direction:column;gap:8px;width:min(360px,calc(100vw - 28px));max-height:80vh;overflow:auto'; document.body.appendChild(box); }
-    return box;
-  }
-  function showNotif(note) {
-    const box = notifBox(), card = document.createElement('div');
-    card.style.cssText = 'background:#0A1B3D;color:#fff;border-inline-start:4px solid #E2B85A;border-radius:12px;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);font-family:Rubik,Tahoma,sans-serif;overflow-wrap:anywhere';
-    card.innerHTML = `<div style="display:flex;gap:8px;align-items:start"><span aria-hidden="true">🔔</span><div style="flex:1"><b style="color:#E2B85A;font-size:13px">${esc(note.title || L('إشعار من المدرب', 'Trainer notice'))}</b><div style="font-size:13px;margin-top:3px;line-height:1.6;white-space:pre-wrap">${esc(note.body || '')}</div><div style="font-size:10px;color:#cbd5e1;margin-top:4px">${new Date(note.ts).toLocaleString(EN() ? 'en-GB' : 'ar-SA')}</div></div><button type="button" style="background:none;border:0;color:#cbd5e1;cursor:pointer;font-size:20px;min-width:32px;min-height:32px" aria-label="${L('إغلاق الإشعار', 'Dismiss notice')}">×</button></div>`;
-    card.querySelector('button').onclick = () => { card.remove(); if (!box.children.length) box.remove(); };
-    box.appendChild(card);
+  /* ───── إشعارات المدرب (شبه لحظية) ───── */
+  function notifBox() { let b = document.getElementById('tfNotifs'); if (!b) { b = document.createElement('div'); b.id = 'tfNotifs'; b.style.cssText = 'position:fixed;top:14px;inset-inline-end:14px;z-index:2147483600;display:flex;flex-direction:column;gap:8px;max-width:360px'; document.body.appendChild(b); } return b; }
+  function showNotif(n) {
+    const box = notifBox(); const d = document.createElement('div');
+    d.style.cssText = 'background:#0A1B3D;color:#fff;border-inline-start:4px solid #E2B85A;border-radius:12px;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);font-family:Rubik,Tahoma,sans-serif;animation:tfnin .3s';
+    d.innerHTML = `<div style="display:flex;gap:8px;align-items:start"><span style="font-size:18px">🔔</span><div style="flex:1"><b style="color:#E2B85A;font-size:13px">${esc(n.title || 'إشعار من المدرب')}</b><div style="font-size:13px;margin-top:3px;line-height:1.6">${esc(n.body || '')}</div><div style="font-size:10px;color:#9fb0c9;margin-top:4px">${new Date(n.ts).toLocaleTimeString(EN() ? 'en-GB' : 'ar-SA', { hour: '2-digit', minute: '2-digit' })}</div></div><button style="background:none;border:0;color:#9fb0c9;cursor:pointer;font-size:16px" aria-label="إغلاق">×</button></div>`;
+    d.querySelector('button').onclick = () => d.remove(); box.appendChild(d);
+    setTimeout(() => { d.style.transition = '.4s'; d.style.opacity = '0'; setTimeout(() => d.remove(), 400); }, 12000);
   }
   async function pollNotifs() {
-    if (page === 'trainer' || !authenticated || !restored || !currentUser || document.hidden || document.visibilityState !== 'visible') return false;
-    const id = currentUser.id, epoch = authEpoch;
-    if (notificationRequest && notificationRequest.epoch === epoch) return false;
-    if (notificationOwner !== id) {
-      resetNotifs(); notificationOwner = id;
-      const saved = rawRead(notificationKey(id), {});
-      if (saved && typeof saved.cursor === 'string' && saved.cursor.length <= 2048) { notificationCursor = saved.cursor; notificationSince = notificationTimestamp(saved.since); }
-    }
-    const cursor = notificationCursor, since = notificationSince, request = { epoch }; notificationRequest = request;
+    const u = user(); if (!u || !u.token || u.local) return;
     try {
-      const r = await api('/api/notify?' + (cursor ? 'cursor=' + encodeURIComponent(cursor) : 'since=' + since));
-      if (epoch !== authEpoch || !authenticated || !restored || !currentUser || currentUser.id !== id) return false;
-      if (r.status === 401 || r.status === 403) { clearSession('انتهت الجلسة أو أُوقف الحساب. سجّل الدخول مجددًا.'); return false; }
-      if (r.ok && !validIdentity(r.j, id)) { if (typeof r.j.learnerId === 'string' && r.j.learnerId !== id) clearSession('تغيّر الحساب. سجّل الدخول مجددًا.', true); return false; }
-      if (!r.ok || !Array.isArray(r.j.notifs) || document.hidden || document.visibilityState !== 'visible') return false;
-      const nextSince = notificationTimestamp(r.j.nextSince), nextCursor = r.j.nextCursor;
-      // Cursor is opaque: never parse it or substitute a timestamp when pagination is available.
-      if (!Number.isSafeInteger(r.j.nextSince) || nextSince < since || (nextCursor !== null && (typeof nextCursor !== 'string' || !nextCursor || nextCursor.length > 2048)) ||
-          (r.j.hasMore && (!nextCursor || nextCursor === cursor)) ||
-          r.j.notifs.some(n => !n || typeof n.id !== 'string' || !n.id || !Number.isSafeInteger(n.ts) || n.ts < since || n.ts > nextSince || typeof n.title !== 'string' || typeof n.body !== 'string')) return false;
-      refreshProfile(r.j);
-      r.j.notifs.slice().sort((a, b) => a.ts - b.ts || a.id.localeCompare(b.id)).forEach(note => { if (!notificationIds.has(note.id)) { showNotif(note); notificationIds.add(note.id); } });
-      notificationCursor = nextCursor || cursor; notificationSince = nextSince;
-      try { localStorage.setItem(notificationKey(id), JSON.stringify({ cursor: notificationCursor, since: notificationSince })); } catch (e) {}
-      render();
-      if (r.j.hasMore) setTimeout(() => { if (epoch === authEpoch) pollNotifs(); }, 100);
-      return true;
-    } catch (e) { return false; }
-    finally { if (notificationRequest === request) notificationRequest = null; }
+      const since = +(localStorage.getItem('tf_notif_seen') || 0);
+      const r = await api(`/api/notify?id=${encodeURIComponent(u.id)}&token=${encodeURIComponent(u.token)}&since=${since}`);
+      if (r.ok && r.j.notifs && r.j.notifs.length) {
+        r.j.notifs.slice().sort((a, b) => a.ts - b.ts).forEach(showNotif);
+        const maxTs = Math.max(...r.j.notifs.map(n => n.ts));
+        localStorage.setItem('tf_notif_seen', String(maxTs));
+      }
+    } catch (e) {}
   }
   function mark(k, v) { const s = st(); s.done = s.done || {}; if (v === false) delete s.done[k]; else s.done[k] = Date.now(); wr(LS_C, s); render(); sync(true); }
   function seen(k) { const s = st(); s.seen = s.seen || {}; if (!s.seen[k]) { s.seen[k] = Date.now(); wr(LS_C, s); render(); } }
 
   /* ───── نافذة التسجيل ───── */
   function regModal(opts) {
-    opts = opts || {}; if (page === 'trainer' || document.getElementById('tfReg')) return;
-    let modalVersion = 0;
+    opts = opts || {}; if (document.getElementById('tfReg')) return;
     const c = cfg(); const ov = document.createElement('div'); ov.id = 'tfReg';
     ov.innerHTML = `<div class="tfr-box" role="dialog" aria-modal="true">
       <div class="tfr-h"><div class="tfr-k">TRACK FORD · GRCP COURSE</div><h2>${opts.login ? 'تسجيل الدخول' : 'تسجيل المتدرب'}</h2><p>سجّل مرة واحدة لتظهر محاضرات اليوم وتُحفظ نتائجك ويتابع المدرب تقدّمك.</p></div>
       <form class="tfr-f" id="tfRegForm">
-        <label class="n reg-only">الاسم الكامل<input name="name" required minlength="3" placeholder="مثال: محمد بن عبدالله"></label>
+        <label class="n">الاسم الكامل<input name="name" required minlength="3" placeholder="مثال: محمد بن عبدالله"></label>
         <label>رقم الجوال<input name="phone" required inputmode="tel" placeholder="05xxxxxxxx" dir="ltr"></label>
-        <label><span id="tfPasswordLabel">الرقم السري (4–6 أرقام)</span><input name="pin" required minlength="4" maxlength="6" pattern="[0-9]{4,6}" inputmode="numeric" autocomplete="new-password" dir="ltr" type="password"></label>
+        <label>الرقم السري (4 أرقام)<input name="pin" required inputmode="numeric" pattern="\\d{4,6}" maxlength="6" placeholder="••••" dir="ltr" type="password"></label>
         <label class="n reg-only">البريد الإلكتروني (اختياري)<input name="email" type="email" placeholder="name@company.com" dir="ltr"></label>
         <label class="reg-only">المجموعة<select name="group">${(c.groups || []).map(g => `<option>${esc(g)}</option>`).join('')}<option value="عام">بدون مجموعة</option></select></label>
         <label class="reg-only">جهة العمل<input name="org" placeholder="اسم المنظمة"></label>
@@ -320,33 +174,27 @@
       </form></div>`;
     document.body.appendChild(ov); document.body.style.overflow = 'hidden';
     const form = ov.querySelector('#tfRegForm'), msg = ov.querySelector('#tfRegMsg');
-    const setMode = login => { modalVersion++; ov.querySelector('#tfRegGo').disabled = false; ov.querySelectorAll('.reg-only').forEach(e => e.style.display = login ? 'none' : ''); ov.querySelector('h2').textContent = login ? 'تسجيل الدخول' : 'تسجيل المتدرب'; ov.querySelector('#tfRegGo').textContent = login ? 'دخول' : 'تسجيل والبدء'; ov.querySelector('#tfRegSwitch').textContent = login ? 'ليس لديّ حساب — تسجيل جديد' : 'لديّ حساب — دخول'; form.dataset.login = login ? '1' : ''; form.querySelector('[name=name]').required = !login; const password = form.querySelector('[name=pin]'); password.minLength = 4; password.autocomplete = login ? 'current-password' : 'new-password'; ov.querySelector('#tfPasswordLabel').textContent = login ? 'الرقم السري (4–6 أرقام)' : 'الرقم السري (4–6 أرقام)'; };
+    const setMode = login => { ov.querySelectorAll('.reg-only').forEach(e => e.style.display = login ? 'none' : ''); ov.querySelector('h2').textContent = login ? 'تسجيل الدخول' : 'تسجيل المتدرب'; ov.querySelector('#tfRegGo').textContent = login ? 'دخول' : 'تسجيل والبدء'; ov.querySelector('#tfRegSwitch').textContent = login ? 'ليس لديّ حساب — تسجيل جديد' : 'لديّ حساب — دخول'; form.dataset.login = login ? '1' : ''; form.querySelector('[name=name]').required = !login; };
     setMode(!!opts.login);
     ov.querySelector('#tfRegSwitch').onclick = () => setMode(!form.dataset.login);
-    const close = () => { modalVersion++; ov.remove(); document.body.style.overflow = ''; render(); };
-    ov.querySelector('#tfRegGuest').onclick = () => { guestMode = true; close(); };
+    const close = () => { ov.remove(); document.body.style.overflow = ''; render(); };
+    ov.querySelector('#tfRegGuest').onclick = () => { setUser({ id: 'guest', name: 'ضيف', guest: true, local: true, created: Date.now() }); close(); };
     form.onsubmit = async e => {
-      e.preventDefault(); if (ov.querySelector('#tfRegGo').disabled) return; const version = modalVersion, epoch = authEpoch; const fd = Object.fromEntries(new FormData(form).entries()); const login = !!form.dataset.login;
+      e.preventDefault(); const fd = Object.fromEntries(new FormData(form).entries()); const login = !!form.dataset.login;
       msg.textContent = 'جارٍ الاتصال…'; ov.querySelector('#tfRegGo').disabled = true;
+      const ok = await probe();
+      if (!ok) {
+        const u = { id: 'L' + (fd.phone || '').replace(/\D/g, '').slice(-9), name: fd.name || (user() || {}).name || 'متدرب', phone: fd.phone, email: fd.email || '', group: fd.group || 'عام', org: fd.org || '', role: fd.role || '', local: true, created: Date.now() };
+        setUser(u); msg.textContent = ''; close(); toast('تم التسجيل محليًا على هذا الجهاز (لم تُفعَّل قاعدة البيانات بعد).'); return;
+      }
       const r = await api('/api/reg', { method: 'POST', body: JSON.stringify(Object.assign({ action: login ? 'login' : 'register' }, fd)) });
-      if (version !== modalVersion || epoch !== authEpoch || !document.getElementById('tfReg')) return;
       ov.querySelector('#tfRegGo').disabled = false;
-      if (!r.ok || !validCredential({ ...r.j.user, token: r.j.token }) || !validIdentity(r.j, r.j.user && r.j.user.id)) { const E = { bad_phone: 'رقم الجوال غير صحيح (05xxxxxxxx).', bad_pin: 'بيانات الدخول غير صحيحة.', bad_password: login ? 'بيانات الدخول غير صحيحة.' : 'اختر رقمًا سريًا من 4 إلى 6 أرقام.', invalid_credentials: 'بيانات الدخول غير صحيحة.', bad_name: 'اكتب الاسم الكامل.', exists: 'هذا الجوال مسجّل — اختر «لديّ حساب».', not_found: 'لا يوجد حساب بهذا الجوال — سجّل حسابًا جديدًا.', account_suspended: 'هذا الحساب موقوف. تواصل مع المدرب.', weak_password: 'اختر رقمًا سريًا من 4 إلى 6 أرقام.', rate_limited: 'محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.' }; msg.textContent = E[r.j.error] || 'تعذّر تسجيل الدخول إلى الخادم. لم يُنشأ حساب محلي. حاول مرة أخرى.'; return; }
-      const ready = await acceptSession(r.j); if (version !== modalVersion || !document.getElementById('tfReg')) return; close(); if (ready && typeof (opts.after || opts.onSuccess) === 'function') (opts.after || opts.onSuccess)(currentUser); toast(ready ? (r.j.created ? `أهلًا ${currentUser.name} — تم تسجيلك في الدورة.` : `أهلًا بعودتك ${currentUser.name}.`) : syncMessage); if (ready) sync(true);
-
+      if (!r.ok) { const E = { bad_phone: 'رقم الجوال غير صحيح (05xxxxxxxx).', bad_pin: login ? 'الرقم السري غير صحيح.' : 'الرقم السري 4 إلى 6 أرقام.', bad_name: 'اكتب الاسم الكامل.', exists: 'هذا الجوال مسجّل برقم سري مختلف — اختر «لديّ حساب».', not_found: 'لا يوجد حساب بهذا الجوال — سجّل حسابًا جديدًا.' }; msg.textContent = E[r.j.error] || 'تعذّر الاتصال بالخادم، حاول مرة أخرى.'; return; }
+      const u = Object.assign({}, r.j.user, { token: r.j.token }); setUser(u); close(); toast(r.j.created ? `أهلًا ${u.name} — تم تسجيلك في الدورة.` : `أهلًا بعودتك ${u.name}.`); sync(true);
     };
   }
   function toast(m) { let t = document.getElementById('tfToast'); if (!t) { t = document.createElement('div'); t.id = 'tfToast'; document.body.appendChild(t); } t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 3200); }
-  async function signOut() {
-    // Railway preserves account tokens across devices. Sign out affects this browser only.
-    clearSession(); location.reload(); return true;
-  }
-  function syncStatus() {
-    if (syncMessage) return syncMessage;
-    if (!restored) return 'جارٍ استعادة ملخص التقدّم من الخادم؛ لم تبدأ المزامنة بعد.';
-    const suffix = currentUser && currentUser.lastSync ? ' · آخر مزامنة ' + new Date(currentUser.lastSync).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '';
-    return 'ملخص التقدّم متصل بلوحة المدرب' + suffix + ' · ملفات الأنشطة والمصمّمات تبقى على جهازها الأصلي.' + (!workspaceAllowed ? ' بيانات محلية قديمة غير منسوبة لهذا الحساب؛ لن تُرفع تلقائيًا. استخدم ملف متصفح منفصلًا لعمل جديد.' : '');
-  }
+  function signOut() { try { localStorage.removeItem(LS_U); localStorage.removeItem('grcpUser'); } catch (e) {} location.reload(); }
 
   /* ───── شريحة المستخدم (تُعرض في شريط التكامل) ───── */
   function chip() {
@@ -364,15 +212,14 @@
       <section class="tfc-hero" style="--c:${d.col}"><div><div class="tfc-k">GRCP® COURSE · TRACK FORD · ${sched ? (t ? (t === 6 ? 'AFTER COURSE' : 'DAY ' + t) : 'PRE-COURSE') : 'SELF-PACED'}</div>
         <h2>${u ? L(`أهلًا ${esc(u.name)}`, `Welcome ${esc(u.name)}`) : L('أهلًا بك في مسار الدورة', 'Welcome to the course track')}${u && u.group && u.group !== 'عام' ? ` <small>${esc(u.group)}</small>` : ''}</h2>
         <p>${!sched ? L('النظام مفتوح لأي تاريخ: الأيام الخمسة متاحة بالكامل — تنقّل بينها ونفّذ المحاضرات والأنشطة والألعاب والمصمّمات بأي ترتيب وبأي وقت يناسبك.', 'Open for any date: all five days are fully available — move between them and work through the lectures, activities, games and builders in any order, any time.') : t === 0 ? L(`تبدأ الدورة ${dateOf(1)}. والأيام كلها متاحة للاطّلاع الآن.`, `The course starts ${dateOf(1)}. All days are available to preview now.`) : t === 6 ? L('انتهت أيام الدورة — كل الأيام متاحة للمراجعة، والتركيز الآن على الاختبار الحقيقي.', 'Course days are over — all days are open for review; focus now on the real exam.') : L(`اليوم هو اليوم ${t} من 5: <b>${DAYS[t - 1].ar}</b>. كل الأيام متاحة؛ ركّز على بنود يومك ثم انتقل كما تحب.`, `Today is Day ${t} of 5: <b>${DAYS[t - 1].en}</b>. All days are open; focus on today's items then move freely.`)}</p>
-        ${!u ? `<button type="button" class="tfc-btn gold" data-tfc="reg">${L('سجّل الآن ليُحفظ تقدّمك', 'Register now to save your progress')}</button>${syncMessage ? `<div class="tfc-note">${esc(syncMessage)}</div>` : ''}` : `<div class="tfc-note">${esc(syncStatus())}${canClaimWorkspace() ? '<button type="button" class="tfc-mini" id="tfcClaimWorkspace">هذه أعمالي — ربط ملخصها بحسابي</button>' : ''}</div>`}
+        ${!u ? `<button type="button" class="tfc-btn gold" data-tfc="reg">${L('سجّل الآن ليُحفظ تقدّمك', 'Register now to save your progress')}</button>` : (u.local ? '<div class="tfc-note">⚠️ التقدّم محفوظ على هذا الجهاز فقط. <button type="button" class="tfc-mini" id="tfcCode">نسخ كود تقدّمي للمدرب</button></div>' : `<div class="tfc-note">✅ تقدّمك يُزامَن مع لوحة المدرب${u.lastSync ? ' · آخر مزامنة ' + new Date(u.lastSync).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : ''}</div>`)}
         </div><div class="tfc-ring" style="--p:${snap.overall}"><b>${snap.overall}%</b><span>${L('تقدّمي الإجمالي', 'Overall progress')}</span></div></section>
       <nav class="tfc-days">${DAYS.map(x => { const q = dayProgress(x); const dt = dateOf(x.n); return `<button type="button" data-d="${x.n}" class="${x.n === cur ? 'on' : ''} ${x.n === t ? 'today' : ''}" style="--c:${x.col}"><span class="dn">${x.n === t ? '📍' : q.pct === 100 ? '✅' : x.n}</span><span class="dt">${L('اليوم', 'Day')} ${x.n}</span><span class="dd">${dn(x)}</span><span class="dp"><i style="width:${q.pct}%"></i></span><small>${dt ? dt + ' · ' : ''}${q.pct}%</small></button>`; }).join('')}</nav>
       <section class="tfc-day" style="--c:${d.col}"><div class="tfc-dh"><h3>${L('اليوم', 'Day')} ${d.n} — ${dn(d)} <span class="en">${EN() ? d.ar : d.en}</span></h3><div class="tfc-dp">${p.done} / ${p.total} ${L('بند مكتمل', 'items done')}</div></div>
-        <ol class="tfc-items">${d.items.map((i, k) => { let ok = false; try { ok = itemDone(i); } catch (e) {} return `<li class="${ok ? 'ok' : ''}"><span class="num">${ok ? '✓' : k + 1}</span><div class="tx"><a href="${i.href}" ${/^https?:/.test(i.href) ? 'target="_blank" rel="noopener"' : ''}>${esc(EN() && i.te ? i.te : i.t)}</a>${i.manual ? (ok ? `<span class="tfc-mini">${L('مكتمل ✓ (سجل تراكمي)', 'Completed ✓ (cumulative)')}</span>` : `<button type="button" class="tfc-mini" data-mark="${i.k}" data-v="1">${L('تم ✓', 'Done ✓')}</button>`) : ''}</div><a class="go" href="${i.href}" ${/^https?:/.test(i.href) ? 'target="_blank" rel="noopener"' : ''}>${ok ? L('مراجعة', 'Review') : L('ابدأ', 'Start')} ${L('←', '→')}</a></li>`; }).join('')}</ol>
+        <ol class="tfc-items">${d.items.map((i, k) => { let ok = false; try { ok = !!i.chk(); } catch (e) {} return `<li class="${ok ? 'ok' : ''}"><span class="num">${ok ? '✓' : k + 1}</span><div class="tx"><a href="${i.href}" ${/^https?:/.test(i.href) ? 'target="_blank" rel="noopener"' : ''}>${esc(EN() && i.te ? i.te : i.t)}</a>${i.manual ? `<button type="button" class="tfc-mini" data-mark="${i.k}" data-v="${ok ? '0' : '1'}">${ok ? L('إلغاء التعليم', 'Unmark') : L('تم ✓', 'Done ✓')}</button>` : ''}</div><a class="go" href="${i.href}" ${/^https?:/.test(i.href) ? 'target="_blank" rel="noopener"' : ''}>${ok ? L('مراجعة', 'Review') : L('ابدأ', 'Start')} ${L('←', '→')}</a></li>`; }).join('')}</ol>
         <div class="tfc-foot">${d.n === 5 ? L('<b>مشروع المجموعة:</b> كل مجموعة تعرض خريطة GRC لمنظمة مختارة (الملف في النظام + التقييم في المقيّم + فيديو المحاكاة) خلال 10 دقائق.', '<b>Group project:</b> each group presents a GRC map of a chosen organisation (System profile + Navigator assessment + simulation video) in 10 minutes.') : L('<b>نصيحة:</b> أكمل 80% من بنود هذا المحور قبل الانتقال للتالي لأفضل استفادة — المدرب يرى نسبتك. كل المحاور متاحة في أي وقت.', '<b>Tip:</b> complete 80% of this topic before moving on for best results — your trainer sees your percentage. All topics are available any time.')}</div></section>
       ${u && !u.local ? '' : ''}</div>`;
     host.querySelectorAll('.tfc-days button:not([disabled])').forEach(b => b.onclick = () => mountTrack(host, +b.dataset.d));
-    const claim = host.querySelector('#tfcClaimWorkspace'); if (claim) claim.onclick = () => { if (claimWorkspace()) mountTrack(host, cur); };
     const cb = host.querySelector('#tfcCode'); if (cb) cb.onclick = () => { const o = { id: u.id, name: u.name, group: u.group, org: u.org, phone: u.phone, email: u.email, created: u.created, progress: snapshot() }; const code = btoa(unescape(encodeURIComponent(JSON.stringify(o)))); (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).then(() => toast('نُسخ الكود — أرسله للمدرب عبر واتساب.')).catch(() => prompt('انسخ الكود:', code)); };
     host.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => { mark(b.dataset.mark, b.dataset.v === '1'); mountTrack(host, cur); });
   }
@@ -395,6 +242,7 @@
   .tfr-msg{grid-column:1/-1;color:#B91C1C;font-size:13px;min-height:18px}.tfr-act{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
   .tfr-btn,.tfc-btn{border:1px solid #C9973B;background:#0A1B3D;color:#fff;border-radius:999px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none}.tfr-btn.gold,.tfc-btn.gold{background:linear-gradient(180deg,#F2D584,#D4A84C);color:#0A1B3D}.tfr-btn.ghost{background:transparent;color:#5B6476;border-color:#E7DCC6}
   #tfToast{position:fixed;bottom:22px;inset-inline-start:22px;background:#0A1B3D;color:#fff;padding:12px 18px;border-radius:12px;z-index:2147483001;opacity:0;transition:.3s;font-family:Rubik,Tahoma,sans-serif;font-size:14px;max-width:360px}#tfToast.on{opacity:1}
+  @keyframes tfnin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
   .tfc-chip{background:#fff;border:1px solid #E7DCC6;border-radius:999px;padding:2px 10px;font-size:12.5px}.tfc-chip.day{background:#0A1B3D;color:#fff;border-color:#0A1B3D}.tfc-link{color:#0A1B3D;font-weight:800;border-bottom:1px dashed #C9973B;text-decoration:none}.tfc-out{border:0;background:transparent;color:#5B6476;font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
   .tfc-wrap{padding-block:18px;font-family:Rubik,Tahoma,system-ui,sans-serif}.tfc-hero{display:flex;gap:18px;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#0A1B3D,#13295A);color:#fff;border-radius:18px;padding:24px 28px;margin-bottom:14px;border-inline-start:8px solid var(--c)}.tfc-hero h2{margin:4px 0;font-size:26px}.tfc-hero h2 small{font-size:14px;color:#E2B85A}.tfc-hero p{color:#D9C9A4;margin:0 0 10px;max-width:720px}.tfc-k{font-size:11px;letter-spacing:.14em;color:#E2B85A;font-weight:700}.tfc-note{font-size:13px;color:#fff;background:rgba(255,255,255,.1);border-radius:10px;padding:6px 10px;display:inline-block}
   .tfc-ring{width:130px;height:130px;border-radius:50%;background:conic-gradient(#E2B85A calc(var(--p)*1%),rgba(255,255,255,.15) 0);display:grid;place-items:center;flex:0 0 auto}.tfc-ring b{font-size:30px;font-family:Montserrat,Arial}.tfc-ring span{font-size:11px;color:#D9C9A4;text-align:center}
@@ -404,26 +252,21 @@
   document.head.appendChild(css);
 
   /* ───── الإقلاع ───── */
-  function render() { try { window.TFB && window.TFB.render(); } catch (e) {} try { window.I18N && window.I18N.traineeChip && window.I18N.traineeChip(); } catch (e) {} }
-  async function boot() {
-    if (page === 'trainer') { resolveSessionReady(false); return; }
-    const ready = await restoreSession(); resolveSessionReady(ready);
-    if (!ready && !user() && !guestMode && page !== 'index') setTimeout(() => regModal(), 600);
-    if (page === 'academy') { window.addEventListener('hashchange', () => setTimeout(guardAcademyRoute, 30)); setTimeout(guardAcademyRoute, 150); if (user() && (location.hash === '' || location.hash === '#/') && !sessionStorage.getItem('tf_home_seen')) { sessionStorage.setItem('tf_home_seen', '1'); location.hash = '#/course'; } }
+  function render() { try { window.TFB && window.TFB.render(); } catch (e) {} }
+  async function loadServerConfig() { try { const r = await api('/api/progress'); if (r.ok && r.j.config && r.j.config.start) { wr(LS_CFG, Object.assign(cfg(), r.j.config)); render(); } } catch (e) {} }
+  function boot() {
+    if (page === 'trainer') return;
+    if (/[?&]all=1/.test(location.search)) wr('tf_unlock', 1);
+    if (/[?&]trainer=1/.test(location.search)) wr('tf_unlock', 1);
+    if (!user() && page !== 'index') setTimeout(() => regModal(), 600);
+    if (page === 'academy') { window.addEventListener('hashchange', () => setTimeout(guardAcademyRoute, 30)); setTimeout(guardAcademyRoute, 150); if (user() && !user().guest && (location.hash === '' || location.hash === '#/') && !sessionStorage.getItem('tf_home_seen')) { sessionStorage.setItem('tf_home_seen', '1'); location.hash = '#/course'; } }
     if (window.I18N && window.I18N.onChange) window.I18N.onChange(() => { render(); const h = document.getElementById('courseHost'); if (h) mountTrack(h); const ah = document.getElementById('arenaHost'); if (ah && window.TFArena) window.TFArena.mount(ah, (location.hash.split('/')[2] || '')); setTimeout(guardAcademyRoute, 50); });
-    if (ready) sync(true);
-    setInterval(() => sync(), 15000);
-    setTimeout(pollNotifs, 6000); setInterval(pollNotifs, 20000);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) sync(true, true); else { if (!authenticated && validCredential(rawRead(LS_U, null))) restoreSession().then(ready => { if (ready) { sync(true); pollNotifs(); } }); else { sync(); pollNotifs(); } } });
-    window.addEventListener('pagehide', () => sync(true, true));
-    window.addEventListener('storage', e => {
-      if (e.key === 'tf_workspace_owner') { workspaceAllowed = !!currentUser && e.newValue === currentUser.id; render(); }
-      if ((e.key === 'grcpUser' || e.key === LS_U) && authenticated && currentUser) {
-        let other = null; try { other = JSON.parse(e.newValue || 'null'); } catch (err) {}
-        if (!other || other.id !== currentUser.id || (e.key === LS_U && other.token !== currentUser.token)) clearSession('تغيّر الحساب في علامة تبويب أخرى. سجّل الدخول مجددًا.', true);
-      }
-    });
+    loadServerConfig(); setTimeout(() => sync(true), 4000); setInterval(() => { if (!document.hidden) sync(); }, 20000);   // نبضة حضور ومزامنة شبه لحظية
+    if (!localStorage.getItem('tf_notif_seen')) { const u = user(); if (u && !u.local) localStorage.setItem('tf_notif_seen', String(u.created || Date.now())); }
+    setTimeout(pollNotifs, 6000); setInterval(() => { if (!document.hidden) pollNotifs(); }, 20000);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) sync(true); else { sync(); pollNotifs(); } });
+    window.addEventListener('beforeunload', () => { const u = user(); if (u && u.token && !u.local) { try { fetch((window.TF_API_BASE||'')+'/api/progress', { method:'POST', headers:{'content-type':'text/plain'}, body: JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() }), keepalive:true }); } catch (e) {} } });
   }
-  window.TFC = { DAYS, cfg, scheduled, EN, L, today, dayIndex, unlocked, user, setUser, regModal, snapshot, dayProgress, sync, mark, seen, chip, mountTrack, signOut, dayOfLecture, toast, restoreSession, syncStatus, sessionReady, claimWorkspace };
+  window.TFC = { DAYS, cfg, scheduled, EN, L, today, dayIndex, unlocked, user, setUser, regModal, snapshot, dayProgress, sync, mark, seen, chip, mountTrack, signOut, dayOfLecture, toast };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

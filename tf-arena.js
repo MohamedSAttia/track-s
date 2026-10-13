@@ -210,11 +210,10 @@
 
   /* ───── ⑧ تحدي المجموعات ───── */
   function team(host) {
-    const QB = window.GRCP_QBANK || [];
-    const currentGroup = () => { const u = (window.TFC && window.TFC.user()) || {}; return u.group && u.group !== 'عام' ? u.group : 'مجموعتي'; };
+    const QB = window.GRCP_QBANK || []; const u = (window.TFC && window.TFC.user()) || {}; const grp = u.group && u.group !== 'عام' ? u.group : 'مجموعتي';
     let qs = [], i = 0, ok = 0, t0 = 0;
     const start = () => { qs = shuffle(QB.filter(q => q.qa && q.oa)).slice(0, 10); i = 0; ok = 0; t0 = Date.now(); draw(); };
-    const draw = () => { const grp = currentGroup(); const el = host.querySelector('#tm'); const q = qs[i]; if (!q) { const sec = Math.round((Date.now() - t0) / 1000); const pct = Math.round(ok / qs.length * 100); const bonus = Math.max(0, 60 - Math.round(sec / 5)); const pts = ok * 10 + bonus; save('team', pct); const d = rd(); d.team = d.team || {}; d.team[grp] = Math.max(d.team[grp] || 0, pts); wr(d); if (window.TFC) window.TFC.sync(true);
+    const draw = () => { const el = host.querySelector('#tm'); const q = qs[i]; if (!q) { const sec = Math.round((Date.now() - t0) / 1000); const pct = Math.round(ok / qs.length * 100); const bonus = Math.max(0, 60 - Math.round(sec / 5)); const pts = ok * 10 + bonus; save('team', pct); const d = rd(); d.team = d.team || {}; d.team[grp] = Math.max(d.team[grp] || 0, pts); wr(d); if (window.TFC) window.TFC.sync(true);
         el.innerHTML = `<div class="ar-res"><div class="ar-big">${pts} نقطة</div><div>${ok}/10 صحيحة خلال ${sec} ثانية (+${bonus} سرعة) — تُحتسب لصالح <b>${esc(grp)}</b> وتظهر في لوحة المدرب.</div></div><div class="ar-btns"><button class="ar-btn gold" id="tmAgain">جولة أخرى</button></div>`; el.querySelector('#tmAgain').onclick = start; return; }
       el.innerHTML = `<div class="ar-q">${i + 1}/10 · ${esc(grp)} · <span class="en">${q.ch}</span></div><div class="ar-stmt" style="text-align:start;font-size:17px">${esc(q.qa)}</div><div class="ar-opts">${q.oa.map((o, k) => `<button class="ar-opt" data-k="${k}">${esc(o)}</button>`).join('')}</div><div id="tmFb"></div>`;
       el.querySelectorAll('.ar-opt').forEach(b => b.onclick = () => { const good = +b.dataset.k === q.c; if (good) ok++; el.querySelectorAll('.ar-opt').forEach((x, k) => { x.disabled = true; if (k === q.c) x.classList.add('ok'); }); if (!good) b.classList.add('bad'); el.querySelector('#tmFb').innerHTML = `<div class="ar-fb">${good ? '✅' : '❌'} ${esc(q.ea || q.e || '')} <button class="ar-btn" id="tmNext">التالي ←</button></div>`; el.querySelector('#tmNext').onclick = () => { i++; draw(); }; }); };

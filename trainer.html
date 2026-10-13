@@ -16,7 +16,7 @@ main{max-width:1360px;margin:0 auto;padding:18px}
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.kpi{background:var(--navy);color:#fff;border-radius:14px;padding:14px;text-align:center}.kpi b{display:block;font-size:30px;font-family:Montserrat,Arial;color:var(--gold2)}.kpi span{font-size:12px;color:#D9C9A4}.kpi.l{background:#fff;color:var(--fg);border:1px solid var(--line)}.kpi.l b{color:var(--navy)}
 .btn{border:1px solid var(--gold);background:var(--navy);color:#fff;border-radius:999px;padding:8px 16px;font:inherit;font-weight:700;cursor:pointer}.btn.gold{background:linear-gradient(180deg,#F2D584,#D4A84C);color:var(--navy)}.btn.ghost{background:#fff;color:var(--fg);border-color:var(--line)}.btn.sm{padding:4px 10px;font-size:12px}
-input,select,textarea{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
 table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--navy);color:#fff;padding:8px;text-align:right;position:sticky;top:0}td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:middle}tr:hover td{background:#FBF8F2}
 .bar{height:10px;background:#F3EBDA;border-radius:5px;overflow:hidden;min-width:70px}.bar i{display:block;height:100%;background:var(--good)}.bar.w i{background:var(--warn)}.bar.b i{background:var(--bad)}
 .days{display:flex;gap:4px}.days span{width:30px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;background:#CBD5E1}.days span.g{background:var(--good)}.days span.w{background:var(--warn)}.days span.b{background:var(--bad)}.days span.z{background:#CBD5E1;color:#334155}
@@ -27,8 +27,6 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
 .chk{list-style:none;padding:0;margin:0;display:grid;gap:4px}.chk li{padding:6px 10px;border-radius:8px;background:#FBF8F2;font-size:13px}.chk li.ok{background:#ECFDF5}
 .note{color:var(--muted);font-size:13px}.warnbox{background:#FEF3C7;border:1px solid #FCD34D;border-radius:12px;padding:12px 14px}
 .chart{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:end;height:170px;padding:10px 4px 0}.chart div{background:linear-gradient(180deg,var(--gold2),var(--gold));border-radius:8px 8px 0 0;position:relative;min-height:4px}.chart div b{position:absolute;top:-22px;inset-inline:0;text-align:center;font-family:Montserrat,Arial;font-size:13px}.chart div span{position:absolute;bottom:-22px;inset-inline:0;text-align:center;font-size:11px;color:var(--muted)}
-.owner-form{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.owner-form label{display:grid;gap:4px;flex:1 1 160px}.owner-form input,.owner-form select,.owner-form textarea{width:100%;min-width:0}.owner-form textarea{min-height:76px;resize:vertical}.owner-form .wide{flex-basis:100%}.presence{display:inline-block;width:9px;height:9px;border-radius:50%;background:#CBD5E1;margin-inline-end:5px}.presence.recent{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.12)}
-@media(max-width:600px){#cGroups{min-width:0!important;width:100%}.tools label{max-width:100%}}
 @media print{header .sp,.tools,.btn{display:none}}
 </style>
 </head>
@@ -43,267 +41,117 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
 (() => {
   const $ = s => document.querySelector(s); const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const DAYS = window.TFC ? window.TFC.DAYS : [];
-  let DATA = null, FILTER = { g: '', q: '' }, timer = null, poll = null, PIN = '', epoch = 0, refreshing = false;
-  let lastRefresh = 0, refreshError = '', lastCursor = null;
-  let configDraft = null, configSaving = false, configMessage = '';
-  let dataRevision = 0, drawerVersion = 0, drawerUserId = '';
-  let broadcast = { to: 'all', title: '', body: '', sending: false, message: '' };
-  let rename = { from: '', to: '', saving: false, message: '' };
-  const pendingEdits = new Set(), pendingNotices = new Set();
-  function captureOwnerDrafts() {
-    if ($('#nTo')) { broadcast.to = $('#nTo').value; broadcast.title = $('#bTitle').value; broadcast.body = $('#bBody').value; }
-    if ($('#rgFrom')) { rename.from = $('#rgFrom').value; rename.to = $('#rgTo').value; }
-  }
-  function allGroups() { return [...new Set([...(Array.isArray((DATA.config || {}).groups) ? DATA.config.groups : []), ...DATA.users.map(u => u.group || 'عام'), 'عام'])].filter(g => typeof g === 'string' && g).sort(); }
-  function groupOptions(selected) { const groups = allGroups(); if (selected && !groups.includes(selected)) groups.push(selected); return groups.map(g => `<option value="${esc(g)}" ${g === selected ? 'selected' : ''}>${esc(g)}</option>`).join(''); }
-  function rememberNote(note) { if (note) DATA.notifs = [note, ...(DATA.notifs || []).filter(n => n.id !== note.id)].slice(0, 50); }
-  function closeDrawer() { drawerVersion++; drawerUserId = ''; $('#drawer').classList.remove('on'); $('#drawer').innerHTML = ''; }
-  function captureConfigDraft() {
-    const start = $('#cStart'), groups = $('#cGroups');
-    if (start && groups && (start.value !== start.defaultValue || groups.value !== groups.defaultValue)) configDraft = { start: start.value, groups: groups.value };
-  }
-  try { PIN = sessionStorage.getItem('tf_trainer_pin') || ''; } catch (e) {}
-  const num = v => Number.isFinite(Number(v)) ? Math.max(0, Number(v)) : 0;
-  const percentage = v => Math.min(100, num(v));
-  const csvCell = value => { let text = String(value == null ? '' : value); if (/^[\s]*[=+@-]|^[\t\r\n]/.test(text)) text = "'" + text; return '"' + text.replace(/"/g, '""') + '"'; };
-  function safeUser(u) {
-    const p = u.progress || {}, scores = p.scores || {};
-    return { ...u, progress: { ...p, overall: percentage(p.overall), points: num(p.points), timeSec: num(p.timeSec),
-      days: Object.fromEntries([1, 2, 3, 4, 5].map(k => [k, percentage((p.days || {})[k])])),
-      scores: { ...scores, examBest: percentage(scores.examBest), examAttempts: num(scores.examAttempts), maturity: Math.min(5, num(scores.maturity)), quiz: percentage(scores.quiz) },
-      builders: Array.isArray(p.builders) ? p.builders.filter(x => typeof x === 'string') : [] } };
-  }
-  const api = async (opt = {}, cursor = null) => {
-    try {
-      const r = await fetch((window.TF_API_BASE || '') + '/api/trainer' + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''), { cache: 'no-store', ...opt, headers: { 'content-type': 'application/json', 'x-trainer-pin': PIN } });
-      const j = await r.json().catch(() => ({})); return { ok: r.ok && j.ok === true, status: r.status, j };
-    } catch (e) { return { ok: false, status: 0, j: {} }; }
-  };
-  function errorText(r) {
-    if (r.j.error === 'trainer_not_configured') return 'دخول المدرب غير مهيّأ على الخادم. يلزم ضبط كلمة مرور المدرب في إعدادات النشر.';
-    if (['storage_not_configured', 'storage_unavailable'].includes(r.j.error)) return 'قاعدة بيانات المتدربين غير متاحة على الخادم. لم يتم تحميل سجل حي.';
-    if (r.status === 401) return 'انتهت الجلسة أو بيانات الدخول غير صحيحة.';
-    if (r.status === 403) return 'لا تسمح الجلسة الحالية بالوصول. سجّل الدخول مجددًا.';
-    if (r.status === 400) return 'تحقق من البيانات المدخلة وطول النص ثم أعد المحاولة.';
-    if (r.status === 404) return 'لم يعد المتدرب أو المستلِم موجودًا. حدّث القائمة ثم أعد المحاولة.';
-    if (r.status === 409) return 'تغيّرت البيانات أثناء الحفظ. حدّث القائمة ثم أعد المحاولة.';
-    if (r.status === 429) return 'محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.';
-    return 'تعذّر الاتصال بالخادم. أعد المحاولة؛ الدخول المحلي لا يتيح متابعة المتدربين.';
-  }
-  function clearPrivate(message) {
-    epoch++; clearInterval(poll); poll = null; clearTimeout(timer); DATA = null; PIN = ''; try { sessionStorage.removeItem('tf_trainer_pin'); } catch (e) {} lastCursor = null; lastRefresh = 0;
-    configDraft = null; configSaving = false; configMessage = '';
-    broadcast = { to: 'all', title: '', body: '', sending: false, message: '' }; rename = { from: '', to: '', saving: false, message: '' };
-    pendingEdits.clear(); pendingNotices.clear(); closeDrawer();
-    FILTER = { g: '', q: '' }; $('#drawer').classList.remove('on'); $('#drawer').innerHTML = ''; $('#logout').hidden = true;
-    login(message);
-  }
-  function login(message = '') {
-    $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h2>دخول المدرب</h2><p class="note">أدخل كلمة مرور المدرب للاتصال بسجل المتدربين.</p><input id="pin" type="password" autocomplete="current-password" placeholder="كلمة المرور"><div style="margin-top:12px"><button class="btn gold" id="go">دخول</button></div><div class="note" id="msg" style="margin-top:8px">${esc(message)}</div></div>`;
+  let PIN = sessionStorage.getItem('tf_trainer_pin') || '', DATA = null, FILTER = { g: '', q: '' }, timer = null;
+  const LOCAL_PIN = '275819';
+  /* طلبات «بسيطة» بلا preflight: الرقم السري في الرابط + content-type نصّي، لتفادي أي حجب CORS */
+  const api = async (opt) => { try { const r = await fetch((window.TF_API_BASE||'')+'/api/trainer?pin=' + encodeURIComponent(PIN), Object.assign({ headers: { 'content-type': 'text/plain' } }, opt || {})); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; } catch (e) { return { ok: false, status: 0, j: { error: 'offline' } }; } };
+  const LIVE = () => !!(window.TF_API_BASE || '').trim();
+  /* وضع محلي: عند فتح الملفات بدون خادم (file://) أو قبل نشر الـ API — يعمل بالرقم الافتراضي ويعرض البيانات المستوردة */
+  const localData = () => ({ ok: true, local: true, offline: true, users: [], config: JSON.parse(localStorage.getItem('tf_course_cfg') || '{}') });
+  function login() {
+    $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h2>دخول المدرب</h2><p class="note">أدخل الرقم السري للمدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><div style="margin-top:12px"><button class="btn gold" id="go">دخول</button></div><div class="note" id="msg" style="margin-top:8px"></div></div>`;
     $('#go').onclick = async () => {
-      const pin = $('#pin').value; if (!pin) { $('#msg').textContent = 'أدخل رمز المدرب.'; return; }
-      PIN = pin; $('#msg').textContent = 'جارٍ التحقق…'; $('#go').disabled = true;
-      if (await refresh()) { try { sessionStorage.setItem('tf_trainer_pin', PIN); } catch (e) {} start(); }
-      else if ($('#go')) { $('#go').disabled = false; $('#pin').value = ''; }
-    };
-    $('#pin').onkeydown = e => { if (e.key === 'Enter' && !$('#go').disabled) $('#go').click(); };
+      PIN = $('#pin').value.trim(); if (!PIN) { $('#msg').textContent = 'أدخل الرقم السري.'; return; }
+      $('#msg').textContent = 'جارٍ التحقق…'; $('#go').disabled = true;
+      let r = await api(); $('#go').disabled = false;
+      if (!r.ok && (r.status === 0 || r.status === 404 || r.status >= 500)) {
+        if (LIVE()) { $('#msg').innerHTML = 'تعذّر الوصول إلى الخادم الحيّ (' + esc(window.TF_API_BASE) + ').<br>تأكد من اتصالك بالإنترنت وأن الرابط يعمل، ثم حاول مجددًا.'; return; }
+        /* لا يوجد خادم حيّ مضبوط: ادخل محليًا بالرقم الافتراضي */
+        if (PIN === LOCAL_PIN) { r = { ok: true, j: localData() }; }
+        else { $('#msg').textContent = 'لا يوجد خادم مضبوط. تأكد من ملف tf-config.js، أو استخدم رقم المدرب للدخول المحلي.'; return; }
+      }
+      if (!r.ok) { $('#msg').textContent = r.status === 401 ? 'الرقم السري غير صحيح.' : 'تعذّر الاتصال بالخادم — حاول مرة أخرى.'; return; }
+      sessionStorage.setItem('tf_trainer_pin', PIN); localStorage.setItem('tf_unlock', '1'); DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); };
+    $('#pin').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
   }
-  const pct = u => percentage(u.progress && u.progress.overall), cls = p => p >= 70 ? 'g' : p >= 35 ? 'w' : p > 0 ? 'b' : 'z';
-  const pts = u => num(u.progress && u.progress.points);
-  const tsec = u => num(u.progress && u.progress.timeSec);
+  const pct = u => (u.progress && u.progress.overall) || 0, cls = p => p >= 70 ? 'g' : p >= 35 ? 'w' : p > 0 ? 'b' : 'z';
+  const pts = u => (u.progress && u.progress.points) || 0;
+  const tsec = u => (u.progress && u.progress.timeSec) || 0;
   const fmtTime = s => { s = Math.round(s || 0); if (s < 60) return s + ' ث'; const m = Math.round(s / 60); if (m < 60) return m + ' د'; const h = Math.floor(m / 60); return h + ' س ' + (m % 60) + ' د'; };
   const sumBy = (arr, f) => arr.reduce((a, u) => a + (+f(u) || 0), 0);
-  const timestamp = value => { const n = typeof value === 'number' ? value : (typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : Date.parse(value)); return Number.isFinite(n) && n > 0 ? n : 0; };
-  const recentActivity = u => Math.max(timestamp(u.lastSeen), timestamp((u.progress || {}).at));
-  const seen = u => { const time = Math.max(recentActivity(u), timestamp(u.lastLogin)); return time ? new Date(time) : null; };
-  const online = u => { const time = recentActivity(u), age = Date.now() - time; return u.status !== 'suspended' && time > 0 && age >= 0 && age < 150000; };
-  const dot = u => `<span class="presence${online(u) ? ' recent' : ''}" title="${online(u) ? 'نشاط حديث خلال نحو دقيقتين ونصف' : 'لا يوجد نشاط حديث'}" aria-label="${online(u) ? 'نشاط حديث تقريبي' : 'لا يوجد نشاط حديث'}"></span>`;
+  const seen = u => { const t = Math.max(u.lastSeen || 0, u.progress ? u.progress.at : 0, u.lastLogin || 0); return t ? new Date(t) : null; };
+  const online = u => { const t = Math.max(u.lastSeen || 0, u.progress ? u.progress.at : 0); return t && (Date.now() - t < 150000); };
   const ago = d => { if (!d) return '—'; const m = Math.round((Date.now() - d) / 60000); return m < 2 ? 'الآن' : m < 60 ? `قبل ${m} د` : m < 1440 ? `قبل ${Math.round(m / 60)} س` : d.toLocaleDateString('ar-SA'); };
+  const dot = u => online(u) ? '<span title="متصل الآن" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#22C55E;margin-inline-end:5px;box-shadow:0 0 0 3px rgba(34,197,94,.2)"></span>' : '<span title="غير متصل" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#CBD5E1;margin-inline-end:5px"></span>';
   function render() {
-    if (!DATA) return;
-    captureConfigDraft(); captureOwnerDrafts();
-    const focused = document.activeElement;
-    const editing = focused && ['cStart', 'cGroups', 'fq', 'fg', 'nTo', 'bTitle', 'bBody', 'rgFrom', 'rgTo'].includes(focused.id) ? { id: focused.id, start: focused.selectionStart, end: focused.selectionEnd, direction: focused.selectionDirection } : null;
     const users = (DATA.users || []).slice().sort((a, b) => pct(b) - pct(a)); const cfg = DATA.config || {}; const t = window.TFC ? window.TFC.today() : 0; const sched = !!(cfg.start || '').trim();
-    const groups = [...new Set(users.map(u => u.group || 'عام'))].sort(); const availableGroups = allGroups();
+    const groups = [...new Set(users.map(u => u.group || 'عام'))].sort();
     const f = users.filter(u => (!FILTER.g || (u.group || 'عام') === FILTER.g) && (!FILTER.q || (u.name + ' ' + (u.org || '') + ' ' + (u.phone || '')).includes(FILTER.q)));
     const avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0;
-    const active = users.filter(online).length;
+    const active = users.filter(u => seen(u) && Date.now() - seen(u) < 86400000).length;
+    const liveN = users.filter(online).length;
     const dayAvg = n => avg(users.map(u => +(((u.progress || {}).days || {})[n] || 0)));
     $('#main').innerHTML = `
-      <div class="card note" id="liveStatus" role="status">${esc(refreshError || ('آخر تحديث من الخادم: ' + (lastRefresh ? new Date(lastRefresh).toLocaleTimeString('ar-SA') : 'جارٍ التحميل') + ' · تحديث تلقائي كل 15 ثانية'))}${lastCursor ? ' · السجل المعروض جزئي؛ اضغط تحميل المزيد.' : ''}</div>
-      <div class="kpis"><div class="kpi"><b>${users.length}</b><span>متدرب مسجّل</span></div><div class="kpi"><b>${active}</b><span>نشاط حديث (تقريبي، خلال 150 ثانية)</span></div><div class="kpi"><b>${avg(users.map(pct))}%</b><span>متوسط التقدّم</span></div><div class="kpi"><b>🏆 ${sumBy(users, pts)}</b><span>إجمالي النقاط</span></div><div class="kpi"><b>⏱ ${fmtTime(sumBy(users, tsec))}</b><span>إجمالي وقت التعلّم</span></div><div class="kpi l"><b>${!sched ? 'مفتوح' : (t === 0 ? 'قبل' : t === 6 ? 'انتهت' : t)}</b><span>${!sched ? 'النظام مفتوح لأي تاريخ — حدّد تاريخ بدء لتفعيل الجدول اليومي' : 'يوم الدورة الحالي · تبدأ ' + esc(cfg.start)}</span></div></div>
+      ${!DATA.local ? '<div class="card" style="background:#ECFDF5;border:1px solid #6EE7B7;display:flex;gap:10px;align-items:center"><b style="color:#047857">✅ متصل بالخادم الحيّ</b><span class="note">المتابعة لحظية والتعديل والإشعارات تعمل — v4.7-LIVE ·' + esc((window.TF_API_BASE||'').replace(/^https?:\/\//,'')) + '</span></div>' : ''}
+      ${DATA.offline ? '<div class="warnbox card">ℹ️ أنت في <b>الوضع المحلي</b> (لا يوجد خادم حيّ مضبوط في tf-config.js). استخدم نسخة v4.5-LIVE أو أحدث، أو استورد «كود التقدّم» أدناه.</div>' : ''}
+      ${DATA.local && !DATA.offline ? '<div class="warnbox card">⚠️ قاعدة بيانات التسجيل غير مفعّلة بعد. فعّلها من Vercel → Storage → Upstash for Redis (خطوة واحدة) ليظهر هنا كل من سجّل وتقدّمه تلقائيًا. حتى ذلك الحين يمكن استيراد «كود التقدّم» من المتدربين أدناه.</div>' : ''}
+      <div class="kpis"><div class="kpi"><b>${users.length}</b><span>متدرب مسجّل</span></div><div class="kpi"><b style="color:#22C55E">● ${liveN}</b><span>متصل الآن (لحظي)</span></div><div class="kpi"><b>${avg(users.map(pct))}%</b><span>متوسط التقدّم</span></div><div class="kpi"><b>🏆 ${sumBy(users, pts)}</b><span>إجمالي النقاط</span></div><div class="kpi"><b>⏱ ${fmtTime(sumBy(users, tsec))}</b><span>إجمالي وقت التعلّم</span></div><div class="kpi l"><b>${!sched ? 'مفتوح' : (t === 0 ? 'قبل' : t === 6 ? 'انتهت' : t)}</b><span>${!sched ? 'النظام مفتوح لأي تاريخ — حدّد تاريخ بدء لتفعيل الجدول اليومي' : 'يوم الدورة الحالي · تبدأ ' + esc(cfg.start)}</span></div></div>
       <div class="card"><div class="tools"><b>متوسط التقدّم حسب اليوم</b><span class="note">يُحتسب من بنود كل يوم (محاضرات، أنشطة، ألعاب، أسئلة، ساحة الذكاء، النظام، المقيّم)</span></div><div class="chart">${DAYS.map(d => `<div style="height:${Math.max(3, dayAvg(d.n))}%"><b>${dayAvg(d.n)}%</b><span>اليوم ${d.n}</span></div>`).join('')}</div><div style="height:26px"></div></div>
       <div class="card"><div class="tools"><b>المجموعات</b><span class="note">النقاط والوقت مجمّعة لكل مجموعة — مرتّبة حسب النقاط</span></div><div class="grp">${groups.slice().sort((a, b) => sumBy(users.filter(u => (u.group || 'عام') === b), pts) - sumBy(users.filter(u => (u.group || 'عام') === a), pts)).map(g => { const gu = users.filter(u => (u.group || 'عام') === g); const gp = sumBy(gu, pts); return `<div class="g"><h4>${esc(g)} <small class="note">(${gu.length})</small></h4><div class="bar ${cls(avg(gu.map(pct)))}"><i style="width:${avg(gu.map(pct))}%"></i></div><div class="note">متوسط التقدّم ${avg(gu.map(pct))}% · 🏆 <b>${gp}</b> نقطة · ⏱ ${fmtTime(sumBy(gu, tsec))}<br>أفضل متدرب: ${esc((gu.slice().sort((a, b) => pts(b) - pts(a))[0] || {}).name || '—')} · نقاط التحدي: ${gu.reduce((a, u) => a + (+((((u.progress || {}).scores || {}).team || {})[g]) || 0), 0)}</div></div>`; }).join('') || '<span class="note">لا توجد مجموعات بعد.</span>'}</div></div>
-      <div class="card"><div class="tools"><b>المتدربون (${f.length})</b><select id="fg"><option value="">كل المجموعات</option>${groups.map(g => `<option ${FILTER.g === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select><input id="fq" placeholder="بحث بالاسم أو الجهة أو الجوال" value="${esc(FILTER.q)}"><span style="flex:1"></span><button class="btn ghost sm" id="csv">⬇ CSV</button><button class="btn ghost sm" id="print">🖨 طباعة</button><button class="btn sm" id="refresh">↻ تحديث</button>${lastCursor ? '<button class="btn ghost sm" id="more">تحميل المزيد</button>' : ''}</div>
+      <div class="card"><div class="tools"><b>المتدربون (${f.length})</b><select id="fg"><option value="">كل المجموعات</option>${groups.map(g => `<option ${FILTER.g === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select><input id="fq" placeholder="بحث بالاسم أو الجهة أو الجوال" value="${esc(FILTER.q)}"><span style="flex:1"></span><button class="btn ghost sm" id="csv">⬇ CSV</button><button class="btn ghost sm" id="print">🖨 طباعة</button><button class="btn sm" id="refresh">↻ تحديث</button></div>
         <div style="overflow:auto;max-height:70vh"><table><thead><tr><th>#</th><th>الاسم</th><th>المجموعة</th><th>الجهة</th><th>🏆 النقاط</th><th>⏱ الوقت</th><th>التقدّم</th><th>الأيام 1–5</th><th>أفضل اختبار</th><th>النضج</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
-        ${f.slice().sort((a, b) => pts(b) - pts(a)).map((u, i) => { const p = pct(u), d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return `<tr><td>${i + 1}</td><td>${dot(u)}<b>${esc(u.name)}</b>${u.status === 'suspended' ? ' <small>موقوف</small>' : ''}${u.role ? `<br><small class="note">${esc(u.role)}</small>` : ''}</td><td>${esc(u.group || 'عام')}</td><td>${esc(u.org || (u.progress || {}).org || '')}</td><td><b style="color:var(--gold);font-size:15px">${pts(u)}</b></td><td>${fmtTime(tsec(u))}</td><td><div class="bar ${cls(p)}"><i style="width:${p}%"></i></div><small>${p}%</small></td><td><div class="days">${[1, 2, 3, 4, 5].map(n => `<span class="${cls(+d[n] || 0)}" title="اليوم ${n}: ${+d[n] || 0}%">${+d[n] || 0}</span>`).join('')}</div></td><td>${sc.examBest ? sc.examBest + '%' : '—'}<br><small class="note">${sc.examAttempts || 0} محاولة</small></td><td>${sc.maturity ? sc.maturity + '/5' : '—'}</td><td>${ago(seen(u))}</td><td><button class="btn ghost sm" data-u="${esc(u.id)}">تفاصيل</button></td></tr>`; }).join('') || '<tr><td colspan="12" class="note">لم يسجّل أحد بعد — شارك رابط المنصّة مع المتدربين.</td></tr>'}
+        ${f.slice().sort((a, b) => pts(b) - pts(a)).map((u, i) => { const p = pct(u), d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return `<tr><td>${i + 1}</td><td>${dot(u)}<b>${esc(u.name)}</b>${u.role ? `<br><small class="note">${esc(u.role)}</small>` : ''}</td><td>${esc(u.group || 'عام')}</td><td>${esc(u.org || (u.progress || {}).org || '')}</td><td><b style="color:var(--gold);font-size:15px">${pts(u)}</b></td><td>${fmtTime(tsec(u))}</td><td><div class="bar ${cls(p)}"><i style="width:${p}%"></i></div><small>${p}%</small></td><td><div class="days">${[1, 2, 3, 4, 5].map(n => `<span class="${cls(+d[n] || 0)}" title="اليوم ${n}: ${+d[n] || 0}%">${+d[n] || 0}</span>`).join('')}</div></td><td>${sc.examBest ? sc.examBest + '%' : '—'}<br><small class="note">${sc.examAttempts || 0} محاولة</small></td><td>${sc.maturity ? sc.maturity + '/5' : '—'}</td><td>${ago(seen(u))}</td><td><button class="btn ghost sm" data-u="${esc(u.id)}">تفاصيل</button></td></tr>`; }).join('') || '<tr><td colspan="12" class="note">لم يسجّل أحد بعد — شارك رابط المنصّة مع المتدربين.</td></tr>'}
         </tbody></table></div></div>
-      <div class="card"><div class="tools"><b>🔔 إرسال إشعار</b><span class="note">يظهر داخل المنصّة للمتدربين النشطين خلال نحو 20 ثانية.</span></div>
-        <div class="owner-form"><label>المستلِم<select id="nTo"><option value="all" ${broadcast.to === 'all' ? 'selected' : ''}>كل المتدربين</option>${broadcast.to.startsWith('group:') && !availableGroups.includes(broadcast.to.slice(6)) ? `<option value="${esc(broadcast.to)}" selected>مجموعة غير موجودة: ${esc(broadcast.to.slice(6))}</option>` : ''}${availableGroups.map(g => `<option value="group:${esc(g)}" ${broadcast.to === 'group:' + g ? 'selected' : ''}>مجموعة: ${esc(g)}</option>`).join('')}</select></label><label>عنوان الإشعار<input id="bTitle" maxlength="120" value="${esc(broadcast.title)}"></label><label class="wide">نص الإشعار<textarea id="bBody" maxlength="600">${esc(broadcast.body)}</textarea></label><button class="btn gold sm" id="bSend">إرسال</button><span class="note" id="bMsg" role="status">${esc(broadcast.message)}</span></div>
-        ${(DATA.notifs || []).length ? `<div class="note" style="margin-top:10px">آخر الإشعارات: ${(DATA.notifs || []).slice(0, 5).map(n => `«${esc(n.title || n.body || '')}» <small>${ago(timestamp(n.ts) ? new Date(timestamp(n.ts)) : null)} · ${n.to === 'all' ? 'للجميع' : esc(String(n.to || '').startsWith('group:') ? 'مجموعة ' + n.to.slice(6) : 'متدرب محدد')}</small>`).join(' · ')}</div>` : ''}</div>
-      <div class="card"><div class="tools"><b>👥 إدارة المجموعات</b><span class="note">إعادة التسمية تنقل جميع أعضاء المجموعة وتحدّث إعداداتها.</span></div><div class="owner-form"><label>المجموعة الحالية<select id="rgFrom">${groupOptions(rename.from || availableGroups[0])}</select></label><label>الاسم الجديد<input id="rgTo" maxlength="80" value="${esc(rename.to)}"></label><button class="btn sm" id="rgGo">إعادة تسمية ونقل</button><span class="note" id="rgMsg" role="status">${esc(rename.message)}</span></div></div>
-      <div class="card"><div class="tools"><b>إعدادات الدورة</b></div><div class="tools"><label>تاريخ بدء الدورة <input type="date" id="cStart" value="${esc(configDraft ? configDraft.start : (cfg.start || ''))}"></label><label>المجموعات (افصل بفاصلة) <input id="cGroups" style="min-width:320px" value="${esc(configDraft ? configDraft.groups : (cfg.groups || (window.TFC ? window.TFC.cfg().groups : [])).join('، '))}"></label><button class="btn gold sm" id="cSave">حفظ</button><span class="note" id="cMsg">${esc(configMessage || (configDraft ? 'تعديلات لم تُحفظ بعد.' : ''))}</span></div><p class="note">يُستخدم تاريخ البدء لعرض يوم الدورة فقط. تبقى جميع الأيام والمحاضرات متاحة؛ لا يغيّر هذا الإعداد صلاحية الدخول.</p></div>
-      <div class="card note">الدرجات والنقاط مؤشرات تقدّم يرسلها متصفح المتدرب وليست تقييمًا مستقلًا أو اختبارًا مراقبًا من الخادم. يضم هذا السجل بيانات الخادم فقط. أكواد التقدّم المستوردة سابقًا محفوظة محليًا ولم تُدمج في السجل الحي. تُزامَن مؤشرات التقدّم؛ ملفات الأنشطة والمصمّمات تبقى على أجهزة المتدربين.</div>`;
+      <div class="card"><div class="tools"><b>🔔 إرسال إشعار / تنبيه</b><span class="note">يصل المتدربين فورًا داخل المنصّة (شبه لحظي)</span></div>
+        <div class="tools"><select id="nTo"><option value="all">كل المتدربين</option>${groups.map(g => `<option value="group:${esc(g)}">مجموعة: ${esc(g)}</option>`).join('')}</select><input id="bTitle" placeholder="عنوان الإشعار" style="min-width:160px"><input id="bBody" placeholder="نص الإشعار" style="min-width:300px"><button class="btn gold sm" id="bSend">إرسال</button><span class="note" id="bMsg"></span></div>
+        ${(DATA.notifs && DATA.notifs.length) ? `<div class="note" style="margin-top:8px">آخر الإشعارات: ${DATA.notifs.slice(0, 5).map(n => `«${esc(n.title || n.body || '')}» <small>${new Date(n.ts).toLocaleString('ar-SA', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })} · ${n.to === 'all' ? 'للجميع' : esc(n.to.replace('group:', 'مجموعة ').replace(/^user:.*/, 'متدرب'))}</small>`).join(' · ')}</div>` : ''}</div>
+      <div class="card"><div class="tools"><b>👥 إدارة المجموعات</b><span class="note">إعادة تسمية مجموعة تنقل كل أعضائها</span></div>
+        <div class="tools"><select id="rgFrom">${groups.map(g => `<option>${esc(g)}</option>`).join('')}</select><span>←</span><input id="rgTo" placeholder="الاسم الجديد" style="min-width:180px"><button class="btn sm" id="rgGo">إعادة تسمية ونقل</button><span class="note" id="rgMsg"></span></div>
+        <div class="grp" style="margin-top:10px">${groups.map(g => { const gu = users.filter(u => (u.group || 'عام') === g); return `<div class="g"><h4>${esc(g)} <small class="note">(${gu.length})</small></h4><div class="note">متصل الآن: ${gu.filter(online).length} · نقاط: ${sumBy(gu, pts)}</div></div>`; }).join('')}</div></div>
+      <div class="card"><div class="tools"><b>إعدادات الدورة</b></div><div class="tools"><label>تاريخ بدء الدورة <input type="date" id="cStart" value="${esc(cfg.start || (window.TFC ? window.TFC.cfg().start : ''))}"></label><label>المجموعات (افصل بفاصلة) <input id="cGroups" style="min-width:320px" value="${esc((cfg.groups || (window.TFC ? window.TFC.cfg().groups : [])).join('، '))}"></label><button class="btn gold sm" id="cSave">حفظ</button><span class="note" id="cMsg"></span></div><p class="note">اليوم الظاهر للمتدربين يُحسب من تاريخ البدء: اليوم 1 = تاريخ البدء، وتُفتح الأيام تباعًا. رابط المدرب لفتح كل الأيام: <code>academy.html?all=1</code></p></div>
+      ${DATA.local ? `<div class="card"><div class="tools"><b>استيراد كود تقدّم (للوضع المحلي)</b></div><div class="tools"><input id="impCode" style="min-width:420px" placeholder="الصق كود التقدّم الذي أرسله المتدرب"><button class="btn sm" id="impGo">استيراد</button></div><div id="impList" class="note"></div></div>` : ''}
+      ${!DATA.local && localStorage.getItem('tf_trainer_local') ? `<div class="card" style="background:#FFF7ED;border:1px solid #FED7AA"><div class="tools"><b>🧹 بيانات محلية قديمة</b><span class="note">كانت محفوظة قبل تفعيل الخادم الحيّ — لم تعد تُعرض. يمكنك مسحها نهائيًا.</span></div><div class="tools"><button class="btn ghost sm" id="clrLocal">مسح البيانات المحلية القديمة</button><span class="note" id="clrMsg"></span></div></div>` : ''}`;
     $('#fg').onchange = e => { FILTER.g = e.target.value; render(); }; $('#fq').oninput = e => { FILTER.q = e.target.value; clearTimeout(timer); timer = setTimeout(render, 300); };
-    $('#refresh').onclick = () => refresh(); const more = $('#more'); if (more) more.onclick = () => refresh(true); $('#print').onclick = () => print();
-    $('#csv').onclick = () => { const rows = [['الاسم', 'المجموعة', 'الجهة', 'الجوال', 'البريد', 'النقاط', 'الوقت(دقيقة)', 'التقدّم%', 'يوم1', 'يوم2', 'يوم3', 'يوم4', 'يوم5', 'أفضل اختبار', 'النضج', 'آخر نشاط']].concat(f.slice().sort((a, b) => pts(b) - pts(a)).map(u => { const d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return [u.name, u.group, u.org, u.phone, u.email, pts(u), Math.round(tsec(u) / 60), pct(u), d[1] || 0, d[2] || 0, d[3] || 0, d[4] || 0, d[5] || 0, sc.examBest || '', sc.maturity || '', seen(u) ? seen(u).toISOString() : '']; })); const csv = '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'TrackFord_trainees.csv'; a.click(); };
-    $('#cSave').disabled = configSaving;
-    $('#cStart').oninput = $('#cGroups').oninput = () => { captureConfigDraft(); configMessage = 'تعديلات لم تُحفظ بعد.'; $('#cMsg').textContent = configMessage; };
-    $('#cSave').onclick = async () => {
-      if (configSaving) return;
-      captureConfigDraft();
-      const submitted = { start: $('#cStart').value, groups: $('#cGroups').value };
-      const config = { start: submitted.start, groups: submitted.groups.split(/[،,]/).map(s => s.trim()).filter(Boolean) };
-      const requestEpoch = epoch; configSaving = true; $('#cSave').disabled = true;
-      const r = await api({ method: 'POST', body: JSON.stringify({ config }) });
-      if (requestEpoch !== epoch) return;
-      if (r.status === 401 || r.status === 403) { clearPrivate(errorText(r)); return; }
-      if (!DATA) return;
-      captureConfigDraft(); configSaving = false;
-      if (r.ok) {
-        dataRevision++; DATA.config = r.j.config || config; localStorage.setItem('tf_course_cfg', JSON.stringify(DATA.config));
-        if ($('#cStart').value === submitted.start && $('#cGroups').value === submitted.groups) {
-          configDraft = null;
-          $('#cStart').defaultValue = $('#cStart').value; $('#cGroups').defaultValue = $('#cGroups').value;
-        }
-        configMessage = 'حُفظت الإعدادات على الخادم للجميع.' + (configDraft ? ' توجد تعديلات أحدث لم تُحفظ بعد.' : '');
-      } else configMessage = 'لم تُحفظ الإعدادات. ' + errorText(r);
-      render();
-    };
-    bindOwnerActions();
+    $('#refresh').onclick = refresh; $('#print').onclick = () => print();
+    $('#csv').onclick = () => { const rows = [['الاسم', 'المجموعة', 'الجهة', 'الجوال', 'البريد', 'النقاط', 'الوقت(دقيقة)', 'التقدّم%', 'يوم1', 'يوم2', 'يوم3', 'يوم4', 'يوم5', 'أفضل اختبار', 'النضج', 'آخر نشاط']].concat(f.slice().sort((a, b) => pts(b) - pts(a)).map(u => { const d = (u.progress || {}).days || {}, sc = (u.progress || {}).scores || {}; return [u.name, u.group, u.org, u.phone, u.email, pts(u), Math.round(tsec(u) / 60), pct(u), d[1] || 0, d[2] || 0, d[3] || 0, d[4] || 0, d[5] || 0, sc.examBest || '', sc.maturity || '', seen(u) ? seen(u).toISOString() : '']; })); const csv = '﻿' + rows.map(r => r.map(x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"').join(',')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'TrackFord_trainees.csv'; a.click(); };
+    $('#cSave').onclick = async () => { const config = { start: $('#cStart').value, groups: $('#cGroups').value.split(/[،,]/).map(s => s.trim()).filter(Boolean) }; localStorage.setItem('tf_course_cfg', JSON.stringify(config)); const r = await api({ method: 'POST', body: JSON.stringify({ config }) }); $('#cMsg').textContent = r.ok && !r.j.local ? 'حُفظت الإعدادات للجميع.' : 'حُفظت محليًا (قاعدة البيانات غير مفعّلة).'; if (r.ok) { DATA.config = Object.assign(DATA.config || {}, config); } };
+    const bSend = $('#bSend'); if (bSend) bSend.onclick = async () => { const title = $('#bTitle').value.trim(), bdy = $('#bBody').value.trim(); if (!title && !bdy) { $('#bMsg').textContent = 'اكتب نصًا.'; return; } $('#bMsg').textContent = 'جارٍ الإرسال…'; const r = await api({ method: 'POST', body: JSON.stringify({ notify: { to: $('#nTo').value, title, body: bdy } }) }); if (r.ok && r.j.ok) { $('#bMsg').textContent = '✅ أُرسل'; $('#bTitle').value = ''; $('#bBody').value = ''; refresh(); } else { $('#bMsg').textContent = 'تعذّر الإرسال — فعّل قاعدة البيانات (Upstash).'; } };
+    const rgGo = $('#rgGo'); if (rgGo) rgGo.onclick = async () => { const from = $('#rgFrom').value, to = $('#rgTo').value.trim(); if (!to) { $('#rgMsg').textContent = 'اكتب الاسم الجديد.'; return; } if (!confirm(`نقل كل أعضاء «${from}» إلى «${to}»؟`)) return; $('#rgMsg').textContent = 'جارٍ…'; const r = await api({ method: 'POST', body: JSON.stringify({ renameGroup: { from, to } }) }); if (r.ok && r.j.ok) { $('#rgMsg').textContent = `✅ نُقل ${r.j.moved} متدرب`; refresh(); } else { $('#rgMsg').textContent = 'تعذّر — فعّل قاعدة البيانات.'; } };
     document.querySelectorAll('[data-u]').forEach(b => b.onclick = () => drawer(users.find(u => u.id === b.dataset.u)));
-    if (editing) {
-      const input = $('#' + editing.id);
-      if (input) { input.focus({ preventScroll: true }); if (typeof editing.start === 'number') { try { input.setSelectionRange(editing.start, editing.end, editing.direction || 'none'); } catch (e) {} } }
-    }
+    const impGo = $('#impGo'); if (impGo) impGo.onclick = () => { try { const o = JSON.parse(decodeURIComponent(escape(atob($('#impCode').value.trim())))); const loc = JSON.parse(localStorage.getItem('tf_trainer_local') || '[]'); const i = loc.findIndex(x => x.id === o.id); if (i >= 0) loc[i] = o; else loc.push(o); localStorage.setItem('tf_trainer_local', JSON.stringify(loc)); DATA.users = mergeLocal(DATA.users); render(); } catch (e) { $('#impList').textContent = 'الكود غير صالح.'; } };
+    const clrLocal = $('#clrLocal'); if (clrLocal) clrLocal.onclick = () => { if (!confirm('مسح كل البيانات المحلية القديمة من هذا المتصفح؟')) return; localStorage.removeItem('tf_trainer_local'); $('#clrMsg').textContent = '✅ مُسحت'; setTimeout(refresh, 400); };
   }
-  function bindOwnerActions() {
-    $('#bSend').disabled = broadcast.sending; $('#rgGo').disabled = rename.saving;
-    ['nTo', 'bTitle', 'bBody', 'rgFrom', 'rgTo'].forEach(id => { $('#' + id).oninput = captureOwnerDrafts; $('#' + id).onchange = captureOwnerDrafts; });
-    $('#bSend').onclick = async () => {
-      if (broadcast.sending) return;
-      captureOwnerDrafts(); const submitted = { to: broadcast.to, title: broadcast.title.trim(), body: broadcast.body.trim() };
-      if (!submitted.title && !submitted.body) { broadcast.message = 'اكتب عنوانًا أو نصًا للإشعار.'; $('#bMsg').textContent = broadcast.message; return; }
-      const requestEpoch = epoch; broadcast.sending = true; broadcast.message = 'جارٍ الإرسال…'; $('#bSend').disabled = true; $('#bMsg').textContent = broadcast.message;
-      const r = await api({ method: 'POST', body: JSON.stringify({ notify: submitted }) });
-      if (requestEpoch !== epoch) return;
-      if (r.status === 401 || r.status === 403) { clearPrivate(errorText(r)); return; }
-      if (!DATA) return; captureOwnerDrafts(); broadcast.sending = false;
-      if (r.ok && r.j.note) {
-        dataRevision++; rememberNote(r.j.note); broadcast.message = 'حُفظ الإشعار وسيظهر للمستلمين عند اتصالهم.';
-        if (broadcast.to === submitted.to && broadcast.title.trim() === submitted.title && broadcast.body.trim() === submitted.body) { broadcast.title = ''; broadcast.body = ''; $('#bTitle').value = ''; $('#bBody').value = ''; }
-      } else broadcast.message = 'لم يُؤكّد إرسال الإشعار. ' + errorText(r);
-      render();
-    };
-    $('#rgGo').onclick = async () => {
-      if (rename.saving) return;
-      captureOwnerDrafts(); const from = rename.from, to = rename.to.trim();
-      if (!from || !to || from === to) { rename.message = 'اختر مجموعة واكتب اسمًا جديدًا مختلفًا.'; $('#rgMsg').textContent = rename.message; return; }
-      if (!confirm(`نقل جميع أعضاء «${from}» إلى «${to}»؟`)) return;
-      const requestEpoch = epoch; rename.saving = true; rename.message = 'جارٍ الحفظ…'; $('#rgGo').disabled = true; $('#rgMsg').textContent = rename.message;
-      const r = await api({ method: 'POST', body: JSON.stringify({ renameGroup: { from, to } }) });
-      if (requestEpoch !== epoch) return;
-      if (r.status === 401 || r.status === 403) { clearPrivate(errorText(r)); return; }
-      if (!DATA) return; captureOwnerDrafts(); captureConfigDraft(); rename.saving = false;
-      if (r.ok && r.j.config && Number.isFinite(r.j.moved)) {
-        dataRevision++; DATA.config = r.j.config; DATA.users = DATA.users.map(u => (u.group || 'عام') === from ? { ...u, group: to } : u);
-        localStorage.setItem('tf_course_cfg', JSON.stringify(DATA.config));
-        if (FILTER.g === from) FILTER.g = to;
-        rename.message = `حُفظ الاسم الجديد ونُقل ${r.j.moved} متدرب.` + (configDraft ? ' راجع تعديلات إعدادات الدورة غير المحفوظة قبل حفظها.' : '');
-        if (rename.from === from && rename.to.trim() === to) { rename.from = to; rename.to = ''; $('#rgFrom').innerHTML = groupOptions(to); $('#rgFrom').value = to; $('#rgTo').value = ''; }
-      } else rename.message = 'لم تُؤكّد إعادة التسمية. ' + errorText(r);
-      render();
-    };
-  }
+  function mergeLocal(users) { if (LIVE() && DATA && !DATA.local) return users; /* الخادم الحيّ: أظهر متدربيه فقط ولا تخلط بيانات محلية قديمة */ const loc = JSON.parse(localStorage.getItem('tf_trainer_local') || '[]'); const ids = new Set(users.map(u => u.id)); return users.concat(loc.filter(x => !ids.has(x.id))); }
+  function allGroups() { const cfg = DATA.config || {}; const set = new Set((cfg.groups || [])); (DATA.users || []).forEach(u => set.add(u.group || 'عام')); set.add('عام'); return [...set].filter(Boolean); }
+  function grpOptions(sel) { return allGroups().map(g => `<option ${g === (sel || 'عام') ? 'selected' : ''}>${esc(g)}</option>`).join(''); }
   function drawer(u) {
-    if (!u) return; drawerUserId = u.id; const version = ++drawerVersion; const d = $('#drawer'); const p = u.progress || {}; const it = p.items || {};
+    if (!u) return; const d = $('#drawer'); const p = u.progress || {}; const it = p.items || {};
     d.innerHTML = `<div class="tools"><h3 style="margin:0">${esc(u.name)}</h3><span style="flex:1"></span><button class="btn ghost sm" id="dClose">إغلاق</button></div>
-      <p class="note">${dot(u)}${online(u) ? 'نشاط حديث (تقريبي) · ' : ''}${esc(u.group || 'عام')} · ${esc(u.org || p.org || '')} · <span dir="ltr">${esc(u.phone || '')}</span> · ${esc(u.email || '')}<br>سُجّل ${u.created ? new Date(u.created).toLocaleString('ar-SA') : '—'} · آخر نشاط ${ago(seen(u))}</p>
-      <details style="margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:10px"><summary>✏️ تعديل البيانات والمجموعة</summary><div class="owner-form" style="margin-top:10px">
-        <label>الاسم<input id="eName" maxlength="80" value="${esc(u.name || '')}"></label><label>المجموعة<select id="eGroup">${groupOptions(u.group || 'عام')}</select></label><label>الجهة<input id="eOrg" maxlength="120" value="${esc(u.org || '')}"></label><label>المسمّى<input id="eRole" maxlength="80" value="${esc(u.role || '')}"></label><label>البريد<input id="eEmail" type="email" maxlength="120" dir="ltr" value="${esc(u.email || '')}"></label><label>الجوال<input id="ePhone" dir="ltr" readonly aria-describedby="phoneIdentityNote" value="${esc(u.phone || '')}"></label><span class="note wide" id="phoneIdentityNote">رقم الجوال هو هوية تسجيل الدخول ولا يتغيّر من هذا النموذج.</span><button class="btn gold sm" id="eSave">حفظ التعديلات</button><span class="note" id="eMsg" role="status"></span></div></details>
-      <details style="margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:10px"><summary>🔔 إرسال إشعار لهذا المتدرب</summary><div class="owner-form" style="margin-top:10px"><label>عنوان الإشعار<input id="nTitle" maxlength="120"></label><label class="wide">نص الإشعار<textarea id="nBody" maxlength="600"></textarea></label><button class="btn sm" id="nSend">إرسال للمتدرب</button><span class="note" id="nMsg" role="status"></span></div></details>
+      <p class="note">${dot(u)}${online(u) ? '<b style="color:#16a34a">متصل الآن</b> · ' : ''}${esc(u.group || 'عام')} · ${esc(u.org || p.org || '')} · <span dir="ltr">${esc(u.phone || '')}</span> · ${esc(u.email || '')}<br>سُجّل ${u.created ? new Date(u.created).toLocaleString('ar-SA') : '—'} · آخر ظهور ${seen(u) ? ago(seen(u)) : '—'}</p>
+      ${DATA.local ? '' : `<details style="margin:8px 0;border:1px solid var(--line);border-radius:10px;padding:8px 12px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">✏️ تعديل البيانات والمجموعة</summary>
+        <div class="tools" style="margin-top:10px">
+          <label>الاسم<input id="eName" value="${esc(u.name || '')}"></label>
+          <label>المجموعة<select id="eGroup">${grpOptions(u.group)}</select></label>
+          <label>الجهة<input id="eOrg" value="${esc(u.org || '')}"></label>
+          <label>الجوال<input id="ePhone" dir="ltr" value="${esc(u.phone || '')}"></label>
+          <label>المسمّى<input id="eRole" value="${esc(u.role || '')}"></label>
+          <button class="btn gold sm" id="eSave">💾 حفظ التعديلات</button><span class="note" id="eMsg"></span>
+        </div></details>
+      <details style="margin:8px 0;border:1px solid var(--line);border-radius:10px;padding:8px 12px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">🔔 إرسال إشعار لهذا المتدرب</summary>
+        <div class="tools" style="margin-top:10px"><input id="nTitle" placeholder="عنوان الإشعار" style="min-width:160px"><input id="nBody" placeholder="نص الإشعار" style="min-width:260px"><button class="btn sm" id="nSend">إرسال</button><span class="note" id="nMsg"></span></div></details>`}
       <div class="kpis" style="margin-bottom:12px"><div class="kpi"><b>🏆 ${pts(u)}</b><span>النقاط</span></div><div class="kpi"><b>⏱ ${fmtTime(tsec(u))}</b><span>وقت التعلّم</span></div><div class="kpi"><b>${pct(u)}%</b><span>التقدّم</span></div><div class="kpi"><b>${(p.scores || {}).examBest || 0}%</b><span>أفضل اختبار</span></div><div class="kpi"><b>${(p.scores || {}).quiz || 0}%</b><span>أسئلة المحاضرات</span></div><div class="kpi"><b>${(p.scores || {}).maturity || '—'}</b><span>نضج مؤسسته /5</span></div></div>
       ${DAYS.map(day => `<h4 style="margin:12px 0 6px;color:var(--navy)">اليوم ${day.n} — ${esc(day.ar)} <small class="note">${+((p.days || {})[day.n]) || 0}%</small></h4><ul class="chk">${day.items.map(i => `<li class="${it[i.k] ? 'ok' : ''}">${it[i.k] ? '✅' : '⬜'} ${esc(i.t)}</li>`).join('')}</ul>`).join('')}
-      <h4 style="margin:12px 0 6px;color:var(--navy)">ساحة الذكاء</h4><p class="note">${Object.entries(((p.scores || {}).arena) || {}).map(([k, v]) => `${esc(k)}: ${esc(v)}%`).join(' · ') || '—'}</p>
-      <h4 style="margin:12px 0 6px;color:var(--navy)">المصمّمات والنماذج المبنية</h4><p class="note">${(() => { const B = { objective: 'الأهداف والمؤشرات', total: 'الأداء الشامل', loa: 'خطوط المساءلة', iacm: 'نموذج IACM' }; const b = p.builders || []; return b.length ? b.map(k => '✅ ' + esc(Object.hasOwn(B, k) ? B[k] : k)).join(' · ') : 'لم تُبنَ نماذج بعد'; })()}</p>
-      <button class="btn ghost sm" id="dStatus" style="color:var(--bad)">${u.status === 'suspended' ? 'إعادة تفعيل المتدرب' : 'إيقاف المتدرب مؤقتًا'}</button><div class="note" id="dMsg"></div>`;
-    d.classList.add('on'); $('#dClose').onclick = closeDrawer;
-    $('#eSave').disabled = pendingEdits.has(u.id); $('#nSend').disabled = pendingNotices.has(u.id);
-    $('#eSave').onclick = async () => {
-      if (pendingEdits.has(u.id)) return;
-      const profile = { name: $('#eName').value.trim(), group: $('#eGroup').value, org: $('#eOrg').value.trim(), role: $('#eRole').value.trim(), email: $('#eEmail').value.trim() };
-      if (!profile.name) { $('#eMsg').textContent = 'اكتب اسم المتدرب.'; return; }
-      const requestEpoch = epoch; pendingEdits.add(u.id); $('#eSave').disabled = true; $('#eMsg').textContent = 'جارٍ الحفظ…';
-      const r = await api({ method: 'POST', body: JSON.stringify({ edit: { id: u.id, ...profile } }) });
-      if (requestEpoch !== epoch) return;
-      pendingEdits.delete(u.id);
-      if (r.status === 401 || r.status === 403) { clearPrivate(errorText(r)); return; }
-      if (!DATA) return;
-      if (r.ok && r.j.user && r.j.user.id === u.id) {
-        dataRevision++; DATA.users = DATA.users.map(old => old.id === u.id ? safeUser({ ...old, ...r.j.user, progress: r.j.user.progress || old.progress }) : old); render();
-      }
-      if (version !== drawerVersion || !$('#eSave')) { if (drawerUserId === u.id && $('#eSave')) { $('#eSave').disabled = false; $('#eMsg').textContent = r.ok && r.j.user ? 'انتهى طلب الحفظ السابق. أعد فتح التفاصيل لعرض البيانات الجديدة.' : 'لم يُحفظ الطلب السابق. ' + errorText(r); } return; }
-      $('#eSave').disabled = false; $('#eMsg').textContent = r.ok && r.j.user && r.j.user.id === u.id ? 'حُفظت البيانات على الخادم.' : 'لم تُحفظ البيانات. ' + errorText(r);
+      <h4 style="margin:12px 0 6px;color:var(--navy)">ساحة الذكاء</h4><p class="note">${Object.entries(((p.scores || {}).arena) || {}).map(([k, v]) => `${k}: ${v}%`).join(' · ') || '—'}</p>
+      <h4 style="margin:12px 0 6px;color:var(--navy)">المصمّمات والنماذج المبنية</h4><p class="note">${(() => { const B = { objective: 'الأهداف والمؤشرات', total: 'الأداء الشامل', loa: 'خطوط المساءلة', iacm: 'نموذج IACM' }; const b = p.builders || []; return b.length ? b.map(k => '✅ ' + (B[k] || k)).join(' · ') : 'لم تُبنَ نماذج بعد'; })()}</p>
+      ${DATA.local ? '' : `<button class="btn ghost sm" id="dDel" style="color:var(--bad)">حذف المتدرب</button>`}`;
+    d.classList.add('on'); $('#dClose').onclick = () => d.classList.remove('on');
+    const del = $('#dDel'); if (del) del.onclick = async () => { if (!confirm('حذف ' + u.name + ' نهائيًا؟')) return; await api({ method: 'POST', body: JSON.stringify({ del: u.id }) }); d.classList.remove('on'); refresh(); };
+    const eSave = $('#eSave'); if (eSave) eSave.onclick = async () => {
+      const edit = { id: u.id, name: $('#eName').value, group: $('#eGroup').value, org: $('#eOrg').value, phone: $('#ePhone').value, role: $('#eRole').value };
+      $('#eMsg').textContent = 'جارٍ الحفظ…'; const r = await api({ method: 'POST', body: JSON.stringify({ edit }) });
+      if (r.ok && r.j.ok) { $('#eMsg').textContent = '✅ حُفظت'; Object.assign(u, edit); refresh(); }
+      else if (r.status === 404 || (r.j && r.j.error === 'not_found')) { $('#eMsg').innerHTML = 'هذا المتدرب غير موجود على الخادم الحيّ (بيانات قديمة في المتصفح). اطلب منه التسجيل من بوابة المتدربين، أو امسح البيانات القديمة من الصفحة الرئيسية.'; }
+      else { $('#eMsg').textContent = 'تعذّر الحفظ — تحقّق من الاتصال وحاول مجددًا.'; }
     };
-    $('#nSend').onclick = async () => {
-      if (pendingNotices.has(u.id)) return;
-      const title = $('#nTitle').value.trim(), body = $('#nBody').value.trim();
-      if (!title && !body) { $('#nMsg').textContent = 'اكتب عنوانًا أو نصًا للإشعار.'; return; }
-      const requestEpoch = epoch; pendingNotices.add(u.id); $('#nSend').disabled = true; $('#nMsg').textContent = 'جارٍ الإرسال…';
-      const r = await api({ method: 'POST', body: JSON.stringify({ notify: { to: 'user:' + u.id, title, body } }) });
-      if (requestEpoch !== epoch) return;
-      pendingNotices.delete(u.id);
-      if (r.status === 401 || r.status === 403) { clearPrivate(errorText(r)); return; }
-      if (!DATA) return;
-      if (r.ok && r.j.note) { dataRevision++; rememberNote(r.j.note); render(); }
-      if (version !== drawerVersion || !$('#nSend')) { if (drawerUserId === u.id && $('#nSend')) { $('#nSend').disabled = false; $('#nMsg').textContent = r.ok && r.j.note ? 'حُفظ الإشعار السابق وسيظهر للمتدرب عند اتصاله.' : 'لم يُؤكّد إرسال الإشعار السابق. ' + errorText(r); } return; }
-      $('#nSend').disabled = false; $('#nMsg').textContent = r.ok && r.j.note ? 'حُفظ الإشعار وسيظهر للمتدرب عند اتصاله.' : 'لم يُؤكّد إرسال الإشعار. ' + errorText(r);
-      if (r.ok && r.j.note && $('#nTitle').value.trim() === title && $('#nBody').value.trim() === body) { $('#nTitle').value = ''; $('#nBody').value = ''; }
-    };
-    $('#dStatus').onclick = async () => {
-      const action = u.status === 'suspended' ? 'reactivate' : 'suspend';
-      if (!confirm((action === 'suspend' ? 'إيقاف دخول ' : 'إعادة تفعيل ') + u.name + '؟ ستبقى بيانات التقدّم محفوظة.')) return;
-      const requestEpoch = epoch; $('#dStatus').disabled = true;
-      const r = await api({ method: 'POST', body: JSON.stringify({ action, id: u.id }) });
-      if (requestEpoch !== epoch) return;
-      if (r.status === 401 || r.status === 403) { clearPrivate(errorText(r)); return; }
-      if (!DATA || version !== drawerVersion || !$('#dStatus')) return; $('#dStatus').disabled = false;
-      if (!r.ok) { $('#dMsg').textContent = 'لم يتم تعديل الحساب. ' + errorText(r); return; }
-      dataRevision++; closeDrawer(); refresh();
+    const nSend = $('#nSend'); if (nSend) nSend.onclick = async () => {
+      const title = $('#nTitle').value.trim(), bdy = $('#nBody').value.trim(); if (!title && !bdy) { $('#nMsg').textContent = 'اكتب نصًا.'; return; }
+      $('#nMsg').textContent = 'جارٍ الإرسال…'; const r = await api({ method: 'POST', body: JSON.stringify({ notify: { to: 'user:' + u.id, title, body: bdy } }) });
+      $('#nMsg').textContent = r.ok && r.j.ok ? '✅ أُرسل للمتدرب' : 'تعذّر الإرسال (فعّل قاعدة البيانات).'; if (r.ok && r.j.ok) { $('#nTitle').value = ''; $('#nBody').value = ''; }
     };
   }
-  async function refresh(more = false) {
-    if (!PIN || (refreshing && refreshing.epoch === epoch)) return false; const request = { epoch }; refreshing = request; const requestEpoch = epoch, revision = dataRevision;
-    let cursor = more ? lastCursor : null, users = more && DATA ? DATA.users.slice() : [], response = null;
-    const cursors = new Set();
-    try {
-      for (let pages = 0; pages < 10; pages++) {
-        const r = await api({}, cursor);
-        if (requestEpoch !== epoch) return false;
-        if (r.status === 401 || r.status === 403) { clearPrivate(errorText(r)); return false; }
-        if (!r.ok || !Array.isArray(r.j.users) || r.j.authenticated !== true) {
-          refreshError = errorText(r) + (DATA ? ' البيانات المعروضة قديمة؛ آخر تحديث ' + new Date(lastRefresh).toLocaleTimeString('ar-SA') : '');
-          if (DATA) render(); else login(refreshError); return false;
-        }
-        response = r.j; users.push(...r.j.users.map(safeUser)); cursor = r.j.nextCursor;
-        if (!cursor || cursors.has(cursor)) break; cursors.add(cursor);
-      }
-      if (requestEpoch !== epoch) return false;
-      if (revision !== dataRevision) return false;
-      lastCursor = cursor || null; lastRefresh = Date.now(); refreshError = '';
-      DATA = { ...response, notifs: Array.isArray(response.notifs) ? response.notifs : [], users: [...new Map(users.map(u => [u.id, u])).values()] };
-      localStorage.setItem('tf_course_cfg', JSON.stringify(DATA.config || {})); render(); return true;
-    } finally { if (refreshing === request) refreshing = false; }
-  }
-  function start() {
-    $('#logout').hidden = false;
-    $('#logout').onclick = () => clearPrivate();
-    clearInterval(poll); poll = setInterval(() => { if (!document.hidden && document.visibilityState === 'visible') refresh(); }, 15000);
-  }
-  document.addEventListener('visibilitychange', () => { if (PIN && !document.hidden && document.visibilityState === 'visible') refresh(); });
-  (async () => { if (!PIN) login(); else if (await refresh()) start(); })();
-
+  async function refresh() { const r = await api(); if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); } else if (DATA && DATA.offline) { DATA.users = mergeLocal([]); render(); } }
+  function start() { $('#logout').hidden = false; $('#logout').onclick = () => { sessionStorage.removeItem('tf_trainer_pin'); location.reload(); }; setInterval(refresh, 12000); }
+  (async () => { if (PIN) { let r = await api(); if (!r.ok && !LIVE() && PIN === LOCAL_PIN && (r.status === 0 || r.status === 404 || r.status >= 500)) r = { ok: true, j: localData() }; if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); return; } } login(); })();
 })();
 </script>
 </body>
