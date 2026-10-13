@@ -43,7 +43,9 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   const DAYS = window.TFC ? window.TFC.DAYS : [];
   let PIN = sessionStorage.getItem('tf_trainer_pin') || '', DATA = null, FILTER = { g: '', q: '' }, timer = null;
   const LOCAL_PIN = '275819';
-  const api = async (opt) => { try { const r = await fetch((window.TF_API_BASE||'')+'/api/trainer', Object.assign({ headers: { 'x-trainer-pin': PIN, 'content-type': 'application/json' } }, opt || {})); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; } catch (e) { return { ok: false, status: 0, j: { error: 'offline' } }; } };
+  /* طلبات «بسيطة» بلا preflight: الرقم السري في الرابط + content-type نصّي، لتفادي أي حجب CORS */
+  const api = async (opt) => { try { const r = await fetch((window.TF_API_BASE||'')+'/api/trainer?pin=' + encodeURIComponent(PIN), Object.assign({ headers: { 'content-type': 'text/plain' } }, opt || {})); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; } catch (e) { return { ok: false, status: 0, j: { error: 'offline' } }; } };
+  const LIVE = () => !!(window.TF_API_BASE || '').trim();
   /* وضع محلي: عند فتح الملفات بدون خادم (file://) أو قبل نشر الـ API — يعمل بالرقم الافتراضي ويعرض البيانات المستوردة */
   const localData = () => ({ ok: true, local: true, offline: true, users: [], config: JSON.parse(localStorage.getItem('tf_course_cfg') || '{}') });
   function login() {
@@ -53,9 +55,10 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
       $('#msg').textContent = 'جارٍ التحقق…'; $('#go').disabled = true;
       let r = await api(); $('#go').disabled = false;
       if (!r.ok && (r.status === 0 || r.status === 404 || r.status >= 500)) {
-        /* لا يوجد خادم (file:// أو API غير منشور): ادخل محليًا بالرقم الافتراضي */
+        if (LIVE()) { $('#msg').innerHTML = 'تعذّر الوصول إلى الخادم الحيّ (' + esc(window.TF_API_BASE) + ').<br>تأكد من اتصالك بالإنترنت وأن الرابط يعمل، ثم حاول مجددًا.'; return; }
+        /* لا يوجد خادم حيّ مضبوط: ادخل محليًا بالرقم الافتراضي */
         if (PIN === LOCAL_PIN) { r = { ok: true, j: localData() }; }
-        else { $('#msg').textContent = 'لا يمكن الوصول إلى خادم المنصّة من هنا (الملفات مفتوحة محليًا أو الـ API غير منشور). استخدم رقم المدرب للدخول المحلي، أو افتح الرابط المنشور على Vercel.'; return; }
+        else { $('#msg').textContent = 'لا يوجد خادم مضبوط. تأكد من ملف tf-config.js، أو استخدم رقم المدرب للدخول المحلي.'; return; }
       }
       if (!r.ok) { $('#msg').textContent = r.status === 401 ? 'الرقم السري غير صحيح.' : 'تعذّر الاتصال بالخادم — حاول مرة أخرى.'; return; }
       sessionStorage.setItem('tf_trainer_pin', PIN); localStorage.setItem('tf_unlock', '1'); DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); };
@@ -79,7 +82,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
     const liveN = users.filter(online).length;
     const dayAvg = n => avg(users.map(u => +(((u.progress || {}).days || {})[n] || 0)));
     $('#main').innerHTML = `
-      ${DATA.offline ? '<div class="warnbox card">ℹ️ أنت في <b>الوضع المحلي</b>: الصفحة مفتوحة بدون خادم (ملف محلي أو قبل نشر الـ API). بعد النشر على Vercel وتفعيل Upstash Redis ستظهر هنا بيانات المسجّلين تلقائيًا. يمكنك الآن استيراد «كود التقدّم» من المتدربين أدناه.</div>' : ''}
+      ${!DATA.local ? '<div class="card" style="background:#ECFDF5;border:1px solid #6EE7B7;display:flex;gap:10px;align-items:center"><b style="color:#047857">✅ متصل بالخادم الحيّ</b><span class="note">المتابعة لحظية والتعديل والإشعارات تعمل — v4.6-LIVE · ' + esc((window.TF_API_BASE||'').replace(/^https?:\/\//,'')) + '</span></div>' : ''}
+      ${DATA.offline ? '<div class="warnbox card">ℹ️ أنت في <b>الوضع المحلي</b> (لا يوجد خادم حيّ مضبوط في tf-config.js). استخدم نسخة v4.5-LIVE أو أحدث، أو استورد «كود التقدّم» أدناه.</div>' : ''}
       ${DATA.local && !DATA.offline ? '<div class="warnbox card">⚠️ قاعدة بيانات التسجيل غير مفعّلة بعد. فعّلها من Vercel → Storage → Upstash for Redis (خطوة واحدة) ليظهر هنا كل من سجّل وتقدّمه تلقائيًا. حتى ذلك الحين يمكن استيراد «كود التقدّم» من المتدربين أدناه.</div>' : ''}
       <div class="kpis"><div class="kpi"><b>${users.length}</b><span>متدرب مسجّل</span></div><div class="kpi"><b style="color:#22C55E">● ${liveN}</b><span>متصل الآن (لحظي)</span></div><div class="kpi"><b>${avg(users.map(pct))}%</b><span>متوسط التقدّم</span></div><div class="kpi"><b>🏆 ${sumBy(users, pts)}</b><span>إجمالي النقاط</span></div><div class="kpi"><b>⏱ ${fmtTime(sumBy(users, tsec))}</b><span>إجمالي وقت التعلّم</span></div><div class="kpi l"><b>${!sched ? 'مفتوح' : (t === 0 ? 'قبل' : t === 6 ? 'انتهت' : t)}</b><span>${!sched ? 'النظام مفتوح لأي تاريخ — حدّد تاريخ بدء لتفعيل الجدول اليومي' : 'يوم الدورة الحالي · تبدأ ' + esc(cfg.start)}</span></div></div>
       <div class="card"><div class="tools"><b>متوسط التقدّم حسب اليوم</b><span class="note">يُحتسب من بنود كل يوم (محاضرات، أنشطة، ألعاب، أسئلة، ساحة الذكاء، النظام، المقيّم)</span></div><div class="chart">${DAYS.map(d => `<div style="height:${Math.max(3, dayAvg(d.n))}%"><b>${dayAvg(d.n)}%</b><span>اليوم ${d.n}</span></div>`).join('')}</div><div style="height:26px"></div></div>
@@ -143,7 +147,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--nav
   }
   async function refresh() { const r = await api(); if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); } else if (DATA && DATA.offline) { DATA.users = mergeLocal([]); render(); } }
   function start() { $('#logout').hidden = false; $('#logout').onclick = () => { sessionStorage.removeItem('tf_trainer_pin'); location.reload(); }; setInterval(refresh, 12000); }
-  (async () => { if (PIN) { let r = await api(); if (!r.ok && PIN === LOCAL_PIN && (r.status === 0 || r.status === 404 || r.status >= 500)) r = { ok: true, j: localData() }; if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); return; } } login(); })();
+  (async () => { if (PIN) { let r = await api(); if (!r.ok && !LIVE() && PIN === LOCAL_PIN && (r.status === 0 || r.status === 404 || r.status >= 500)) r = { ok: true, j: localData() }; if (r.ok) { DATA = r.j; DATA.users = mergeLocal(DATA.users || []); render(); start(); return; } } login(); })();
 })();
 </script>
 </body>

@@ -17,7 +17,7 @@
     const ok = await probe();
     if (!ok) { const e = new Error('ai_unavailable'); e.code = 'ai_unavailable'; throw e; }
     const r = await fetch((window.TF_API_BASE||'')+'/api/ai', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, signal: opts.signal,
+      method: 'POST', headers: { 'content-type': 'text/plain' }, signal: opts.signal,
       body: JSON.stringify({ messages: messages, system: opts.system || '', max_tokens: opts.max_tokens || 2000 })
     });
     const j = await r.json().catch(() => ({}));
