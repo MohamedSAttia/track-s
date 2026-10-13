@@ -127,9 +127,30 @@
   let lastSync = 0, syncing = false;
   async function sync(force) {
     const u = user(); if (!u || !u.token || u.local) return false;
-    if (!force && Date.now() - lastSync < 90000) return false;
+    if (!force && Date.now() - lastSync < 20000) return false;   // مزامنة شبه لحظية (20ث) + نبضة حضور
     if (syncing) return false; syncing = true;
     try { const r = await api('/api/progress', { method: 'POST', body: JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() }) }); if (r.ok) { lastSync = Date.now(); u.lastSync = lastSync; wr(LS_U, u); } return r.ok; } catch (e) { return false; } finally { syncing = false; }
+  }
+  /* ───── إشعارات المدرب (شبه لحظية) ───── */
+  function notifBox() { let b = document.getElementById('tfNotifs'); if (!b) { b = document.createElement('div'); b.id = 'tfNotifs'; b.style.cssText = 'position:fixed;top:14px;inset-inline-end:14px;z-index:2147483600;display:flex;flex-direction:column;gap:8px;max-width:360px'; document.body.appendChild(b); } return b; }
+  function showNotif(n) {
+    const box = notifBox(); const d = document.createElement('div');
+    d.style.cssText = 'background:#0A1B3D;color:#fff;border-inline-start:4px solid #E2B85A;border-radius:12px;padding:12px 14px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);font-family:Rubik,Tahoma,sans-serif;animation:tfnin .3s';
+    d.innerHTML = `<div style="display:flex;gap:8px;align-items:start"><span style="font-size:18px">🔔</span><div style="flex:1"><b style="color:#E2B85A;font-size:13px">${esc(n.title || 'إشعار من المدرب')}</b><div style="font-size:13px;margin-top:3px;line-height:1.6">${esc(n.body || '')}</div><div style="font-size:10px;color:#9fb0c9;margin-top:4px">${new Date(n.ts).toLocaleTimeString(EN() ? 'en-GB' : 'ar-SA', { hour: '2-digit', minute: '2-digit' })}</div></div><button style="background:none;border:0;color:#9fb0c9;cursor:pointer;font-size:16px" aria-label="إغلاق">×</button></div>`;
+    d.querySelector('button').onclick = () => d.remove(); box.appendChild(d);
+    setTimeout(() => { d.style.transition = '.4s'; d.style.opacity = '0'; setTimeout(() => d.remove(), 400); }, 12000);
+  }
+  async function pollNotifs() {
+    const u = user(); if (!u || !u.token || u.local) return;
+    try {
+      const since = +(localStorage.getItem('tf_notif_seen') || 0);
+      const r = await api(`/api/notify?id=${encodeURIComponent(u.id)}&token=${encodeURIComponent(u.token)}&since=${since}`);
+      if (r.ok && r.j.notifs && r.j.notifs.length) {
+        r.j.notifs.slice().sort((a, b) => a.ts - b.ts).forEach(showNotif);
+        const maxTs = Math.max(...r.j.notifs.map(n => n.ts));
+        localStorage.setItem('tf_notif_seen', String(maxTs));
+      }
+    } catch (e) {}
   }
   function mark(k, v) { const s = st(); s.done = s.done || {}; if (v === false) delete s.done[k]; else s.done[k] = Date.now(); wr(LS_C, s); render(); sync(true); }
   function seen(k) { const s = st(); s.seen = s.seen || {}; if (!s.seen[k]) { s.seen[k] = Date.now(); wr(LS_C, s); render(); } }
@@ -221,6 +242,7 @@
   .tfr-msg{grid-column:1/-1;color:#B91C1C;font-size:13px;min-height:18px}.tfr-act{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
   .tfr-btn,.tfc-btn{border:1px solid #C9973B;background:#0A1B3D;color:#fff;border-radius:999px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none}.tfr-btn.gold,.tfc-btn.gold{background:linear-gradient(180deg,#F2D584,#D4A84C);color:#0A1B3D}.tfr-btn.ghost{background:transparent;color:#5B6476;border-color:#E7DCC6}
   #tfToast{position:fixed;bottom:22px;inset-inline-start:22px;background:#0A1B3D;color:#fff;padding:12px 18px;border-radius:12px;z-index:2147483001;opacity:0;transition:.3s;font-family:Rubik,Tahoma,sans-serif;font-size:14px;max-width:360px}#tfToast.on{opacity:1}
+  @keyframes tfnin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
   .tfc-chip{background:#fff;border:1px solid #E7DCC6;border-radius:999px;padding:2px 10px;font-size:12.5px}.tfc-chip.day{background:#0A1B3D;color:#fff;border-color:#0A1B3D}.tfc-link{color:#0A1B3D;font-weight:800;border-bottom:1px dashed #C9973B;text-decoration:none}.tfc-out{border:0;background:transparent;color:#5B6476;font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
   .tfc-wrap{padding-block:18px;font-family:Rubik,Tahoma,system-ui,sans-serif}.tfc-hero{display:flex;gap:18px;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#0A1B3D,#13295A);color:#fff;border-radius:18px;padding:24px 28px;margin-bottom:14px;border-inline-start:8px solid var(--c)}.tfc-hero h2{margin:4px 0;font-size:26px}.tfc-hero h2 small{font-size:14px;color:#E2B85A}.tfc-hero p{color:#D9C9A4;margin:0 0 10px;max-width:720px}.tfc-k{font-size:11px;letter-spacing:.14em;color:#E2B85A;font-weight:700}.tfc-note{font-size:13px;color:#fff;background:rgba(255,255,255,.1);border-radius:10px;padding:6px 10px;display:inline-block}
   .tfc-ring{width:130px;height:130px;border-radius:50%;background:conic-gradient(#E2B85A calc(var(--p)*1%),rgba(255,255,255,.15) 0);display:grid;place-items:center;flex:0 0 auto}.tfc-ring b{font-size:30px;font-family:Montserrat,Arial}.tfc-ring span{font-size:11px;color:#D9C9A4;text-align:center}
@@ -239,8 +261,10 @@
     if (!user() && page !== 'index') setTimeout(() => regModal(), 600);
     if (page === 'academy') { window.addEventListener('hashchange', () => setTimeout(guardAcademyRoute, 30)); setTimeout(guardAcademyRoute, 150); if (user() && !user().guest && (location.hash === '' || location.hash === '#/') && !sessionStorage.getItem('tf_home_seen')) { sessionStorage.setItem('tf_home_seen', '1'); location.hash = '#/course'; } }
     if (window.I18N && window.I18N.onChange) window.I18N.onChange(() => { render(); const h = document.getElementById('courseHost'); if (h) mountTrack(h); const ah = document.getElementById('arenaHost'); if (ah && window.TFArena) window.TFArena.mount(ah, (location.hash.split('/')[2] || '')); setTimeout(guardAcademyRoute, 50); });
-    loadServerConfig(); setTimeout(() => sync(true), 4000); setInterval(() => sync(), 120000);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) sync(true); });
+    loadServerConfig(); setTimeout(() => sync(true), 4000); setInterval(() => { if (!document.hidden) sync(); }, 20000);   // نبضة حضور ومزامنة شبه لحظية
+    if (!localStorage.getItem('tf_notif_seen')) { const u = user(); if (u && !u.local) localStorage.setItem('tf_notif_seen', String(u.created || Date.now())); }
+    setTimeout(pollNotifs, 6000); setInterval(() => { if (!document.hidden) pollNotifs(); }, 20000);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) sync(true); else { sync(); pollNotifs(); } });
     window.addEventListener('beforeunload', () => { const u = user(); if (u && u.token && !u.local && navigator.sendBeacon) { try { navigator.sendBeacon('/api/progress', new Blob([JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() })], { type: 'application/json' })); } catch (e) {} } });
   }
   window.TFC = { DAYS, cfg, scheduled, EN, L, today, dayIndex, unlocked, user, setUser, regModal, snapshot, dayProgress, sync, mark, seen, chip, mountTrack, signOut, dayOfLecture, toast };
