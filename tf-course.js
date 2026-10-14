@@ -1,10 +1,10 @@
 /* Track Ford GRC — مسار الدورة الموحّد + تسجيل المتدربين + مزامنة التقدّم
    - الدورة 5 أيام (7–10 مساءً). يظهر للمتدرب يوم الدورة الحالي فقط (والأيام السابقة للمراجعة)، والأيام القادمة مقفلة.
-   - التسجيل حقيقي عبر /api/reg (Vercel KV). بدون قاعدة بيانات يعمل محليًا ويعرض ذلك بوضوح.
+   - التسجيل حقيقي عبر /api/reg؛ وضع الضيف محلي ولا يُنشئ حسابًا على الخادم.
    - التقدّم يُجمع تلقائيًا من كل الوحدات (محاضرات، أنشطة، ألعاب، أسئلة، ساحة الذكاء، النظام، المقيّم) ويُزامَن مع لوحة المدرب. */
 (function () {
   'use strict';
-  const LS_U = 'tf_user', LS_C = 'tf_course', LS_CFG = 'tf_course_cfg';
+  const LS_U = 'tf_user', LS_C = 'tf_course', LS_CFG = 'tf_course_cfg', LS_OWNER = 'tf_progress_owner_v1';
   const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (e) { return d; } };
   const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -79,8 +79,33 @@
 
   /* ───── المستخدم ───── */
   const user = () => rd(LS_U, null);
-  function setUser(u) { wr(LS_U, u); try { if (u) localStorage.setItem('grcpUser', JSON.stringify({ name: u.name, email: u.email || '', phone: u.phone || '', org: u.org || '', since: u.created || Date.now(), id: u.id })); } catch (e) {} }
-  async function api(path, opt) { const r = await fetch((window.TF_API_BASE||'')+path, Object.assign({ headers: { 'content-type': 'text/plain' } }, opt)); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; }
+  const normalizedPhone = value => String(value || '').replace(/\D/g, '').replace(/^00/, '').replace(/^966/, '0').replace(/^5/, '05');
+  const serverIdentity = u => !!(u && !u.local && !u.guest && /^[0-9a-f]{16}$/.test(u.id || '') && /^[0-9a-f]{40}$/.test(u.token || ''));
+  const identityKey = u => serverIdentity(u) ? u.id + ':' + u.token : '';
+  const activeAccount = (value, id, phone) => !!(value && typeof value === 'object' && !Array.isArray(value) && value.id === id && value.status === 'active' && value.blocked === false && value.suspended !== true && !value.local && !value.guest && normalizedPhone(value.phone) === normalizedPhone(phone));
+  let ownerUnavailable = false;
+  function progressOwner() {
+    if (ownerUnavailable) return '!';
+    try { const raw = localStorage.getItem(LS_OWNER); if (raw === null) return ''; const id = JSON.parse(raw); return typeof id === 'string' && /^[0-9a-f]{16}$/.test(id) ? id : '!'; }
+    catch (error) { return '!'; }
+  }
+  function preserveKnownOwner(u) {
+    if (progressOwner() || !serverIdentity(u)) return;
+    try { localStorage.setItem(LS_OWNER, JSON.stringify(u.id)); if (progressOwner() !== u.id) ownerUnavailable = true; }
+    catch (error) { ownerUnavailable = true; }
+  }
+  // Existing server-session identity establishes a conservative ownership hold, not authentication.
+  preserveKnownOwner(user());
+  function setUser(u) { preserveKnownOwner(user()); resetSyncSession(); wr(LS_U, u); try { if (u) localStorage.setItem('grcpUser', JSON.stringify({ name: u.name, email: u.email || '', phone: u.phone || '', org: u.org || '', since: u.created || Date.now(), id: u.id })); } catch (e) {} }
+  async function api(path, opt) {
+    opt = opt || {}; const controller = new AbortController(), abort = () => controller.abort();
+    if (opt.signal) { if (opt.signal.aborted) abort(); else opt.signal.addEventListener('abort', abort, { once: true }); }
+    const timeout = setTimeout(abort, 12000);
+    try {
+      const r = await fetch((window.TF_API_BASE || '') + path, Object.assign({ headers: { 'content-type': 'text/plain' } }, opt, { signal: controller.signal }));
+      const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j };
+    } finally { clearTimeout(timeout); if (opt.signal) opt.signal.removeEventListener('abort', abort); }
+  }
 
   /* ───── التقدّم ───── */
   function dayProgress(d) { const items = d.items; const done = items.filter(i => { try { return !!i.chk(); } catch (e) { return false; } }).length; return { done, total: items.length, pct: Math.round(done / items.length * 100) }; }
@@ -122,13 +147,102 @@
     snap.points = computePoints(snap);
     return snap;
   }
-  let lastSync = 0, syncing = false;
-  async function sync(force) {
-    const u = user(); if (!u || !u.token || u.local) return false;
-    if (!force && Date.now() - lastSync < 20000) return false;   // مزامنة شبه لحظية (20ث) + نبضة حضور
-    if (syncing) return false; syncing = true;
-    try { const r = await api('/api/progress', { method: 'POST', body: JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() }) }); if (r.ok) { lastSync = Date.now(); u.lastSync = lastSync; wr(LS_U, u); } return r.ok; } catch (e) { return false; } finally { syncing = false; }
+  let lastSync = 0, syncRun = null, syncEpoch = 0;
+  let syncState = { identity: '', phase: 'waiting', at: 0 };
+  function resetSyncSession() {
+    syncEpoch++; lastSync = 0;
+    if (syncRun) syncRun.controller.abort();
+    syncRun = null; syncState = { identity: '', phase: 'waiting', at: 0 };
   }
+  function syncStatus() {
+    const u = user(), identity = identityKey(u), owner = progressOwner();
+    if (!u || u.local || u.guest) return { phase: 'local', text: L('تقدّمك محفوظ في هذا المتصفح فقط. سجّل الدخول بحساب الخادم لإرسال نتائج هذا المتصفح تلقائيًا إلى المدرب.', 'Progress is saved in this browser only. Sign in to your server account to send this browser’s results to your trainer automatically.') };
+    const state = identity && owner && owner !== u.id ? { phase: 'ownership', at: 0 } : identity && syncState.identity === identity ? syncState : { phase: identity ? 'waiting' : 'signin', at: 0 };
+    const text = {
+      ownership: L('المزامنة متوقفة: تقدّم هذا المتصفح مرتبط بحساب سابق أو لا يمكن تأكيد صاحبه. ادخل بالحساب الأصلي، أو استخدم ملف متصفح منفصلًا لحساب آخر. لم نحذف تقدّمك أو ننقله.', 'Sync is paused: this browser’s progress belongs to a previous account or its owner cannot be confirmed. Sign in to the original account, or use a separate browser profile for another account. Your progress was not deleted or transferred.'),
+      waiting: L('نتائج هذا المتصفح تنتظر تأكيد المزامنة مع المدرب.', 'This browser’s results are waiting for sync confirmation.'),
+      saving: L('جارٍ إرسال نتائج هذا المتصفح إلى لوحة المدرب…', 'Sending this browser’s results to the trainer dashboard…'),
+      synced: L('تم تأكيد مزامنة النتائج مع لوحة المدرب', 'Results synced with the trainer dashboard') + (state.at ? ' · ' + new Date(state.at).toLocaleTimeString(EN() ? 'en-GB' : 'ar-SA', { hour: '2-digit', minute: '2-digit' }) : ''),
+      error: L('لم تتأكد المزامنة. تقدّمك محفوظ في هذا المتصفح؛ سنحاول مجددًا تلقائيًا أو اضغط إعادة المحاولة.', 'Sync was not confirmed. Progress is safe in this browser; we’ll retry automatically, or you can retry now.'),
+      signin: L('يلزم تسجيل الدخول مجددًا إلى حساب الخادم لإرسال النتائج. تقدّمك في هذا المتصفح محفوظ.', 'Sign in to your server account again to send results. Your progress in this browser is safe.'),
+      blocked: L('الحساب موقوف على الخادم ولم تُرسل النتائج. تواصل مع المدرب؛ تقدّمك في هذا المتصفح محفوظ.', 'The server account is blocked, so results were not sent. Contact your trainer; your progress in this browser is safe.')
+    };
+    return { phase: state.phase, text: text[state.phase] || text.waiting, at: state.at || 0 };
+  }
+  function syncActions(phase) {
+    if (phase === 'local') return `<button type="button" class="tfc-mini" data-tfc="login">${L('لديّ حساب — دخول', 'I have an account — sign in')}</button><button type="button" class="tfc-mini" data-tfc="online">${L('تسجيل حساب على الخادم', 'Register a server account')}</button>`;
+    if (['signin', 'blocked', 'ownership'].includes(phase)) return `<button type="button" class="tfc-mini" data-tfc="login">${L('تسجيل الدخول', 'Sign in')}</button>`;
+    if (phase === 'error') return `<button type="button" class="tfc-mini" data-tfc="sync">${L('إعادة المحاولة', 'Retry sync')}</button>`;
+    return '';
+  }
+  function syncShort(phase) {
+    const labels = {
+      local: L('محلي — يلزم حساب خادم', 'Local — server sign-in needed'), waiting: L('بانتظار المزامنة', 'Waiting to sync'),
+      saving: L('جارٍ الحفظ…', 'Saving…'), synced: L('تمت المزامنة', 'Synced'), error: L('تعذرت المزامنة', 'Sync not confirmed'),
+      signin: L('يلزم تسجيل الدخول مجددًا', 'Sign in again'), blocked: L('الحساب موقوف', 'Account blocked'), ownership: L('المزامنة متوقفة — صاحب التقدّم مختلف أو غير مؤكّد', 'Sync paused — progress owner differs or is unconfirmed')
+    };
+    return labels[phase] || labels.waiting;
+  }
+  function refreshSyncStatus() {
+    const status = syncStatus();
+    document.querySelectorAll('[data-tfc-sync]').forEach(node => { node.textContent = status.text; node.dataset.phase = status.phase; });
+    document.querySelectorAll('[data-tfc-sync-short]').forEach(node => { node.textContent = syncShort(status.phase); node.title = status.text; node.dataset.phase = status.phase; });
+    document.querySelectorAll('[data-tfc-sync-actions]').forEach(node => { node.innerHTML = syncActions(status.phase); });
+  }
+  function setSyncState(identity, phase, at) { syncState = { identity, phase, at: at || 0 }; refreshSyncStatus(); }
+  function syncBanner() {
+    const status = syncStatus();
+    return `<div class="tfc-note"><span data-tfc-sync data-phase="${status.phase}" role="status" aria-live="polite">${esc(status.text)}</span><span data-tfc-sync-actions>${syncActions(status.phase)}</span><small style="display:block;margin-top:4px">${L('تُزامَن ملخصات النتائج للمدرب؛ تفاصيل الأنشطة تبقى في هذا المتصفح.', 'Result summaries sync to your trainer; activity details remain in this browser.')}</small></div>`;
+  }
+  function receiptCovers(receipt, sent) {
+    const object = value => value && typeof value === 'object' && !Array.isArray(value);
+    const coversNumbers = (received, submitted) => object(received) && Object.keys(submitted).every(key => typeof received[key] === 'number' && Number.isFinite(received[key]) && received[key] >= submitted[key]);
+    if (!object(receipt) || !coversNumbers(receipt, { overall: sent.overall, points: sent.points, timeSec: sent.timeSec }) || !coversNumbers(receipt.days, sent.days)) return false;
+    if (!object(receipt.items) || !Object.keys(sent.items).every(key => typeof receipt.items[key] === 'boolean' && (!sent.items[key] || receipt.items[key]))) return false;
+    if (!object(receipt.scores) || !coversNumbers(receipt.scores, { examBest: sent.scores.examBest, examAttempts: sent.scores.examAttempts, quiz: sent.scores.quiz, maturity: sent.scores.maturity })) return false;
+    if (!coversNumbers(receipt.scores.arena, sent.scores.arena) || !coversNumbers(receipt.scores.team, sent.scores.team)) return false;
+    return Array.isArray(receipt.builders) && sent.builders.every(value => receipt.builders.includes(value));
+  }
+  const snapshotKey = value => JSON.stringify(Object.assign({}, value, { at: 0 }));
+  async function sync(force, keepalive) {
+    const u = user(), identity = identityKey(u);
+    if (!identity) { refreshSyncStatus(); return false; }
+    preserveKnownOwner(u);
+    if (progressOwner() !== u.id) { refreshSyncStatus(); return false; }
+    if (syncState.identity === identity && ['signin', 'blocked'].includes(syncState.phase)) return false;
+    if (syncRun) { if (force) syncRun.pending = true; return false; }
+    if (!force && Date.now() - lastSync < 20000) return false;
+    const run = { controller: new AbortController(), epoch: syncEpoch, pending: false }; syncRun = run;
+    const current = () => syncEpoch === run.epoch && identityKey(user()) === identity && progressOwner() === u.id;
+    setSyncState(identity, 'saving');
+    try {
+      const sent = snapshot();
+      const r = await api('/api/progress', { method: 'POST', signal: run.controller.signal, keepalive: !!keepalive, body: JSON.stringify({ id: u.id, token: u.token, snapshot: sent }) });
+      if (!current()) return false;
+      if (r.status === 403 && r.j.error === 'account_blocked') { setSyncState(identity, 'blocked'); return false; }
+      if ([401, 404].includes(r.status) || ['bad_token', 'bad_request'].includes(r.j.error)) { setSyncState(identity, 'signin'); return false; }
+      const receipt = r.j.snapshot;
+      if (!r.ok || r.j.ok !== true || r.j.authenticated !== true || r.j.learnerId !== u.id || !activeAccount(r.j.user, u.id, u.phone) || !receiptCovers(receipt, sent) || !Number.isSafeInteger(receipt.at) || receipt.at <= 0 || receipt.at !== r.j.at || !Number.isSafeInteger(receipt.revision) || receipt.revision < 1) {
+        setSyncState(identity, 'error'); return false;
+      }
+      lastSync = Date.now();
+      // Never replace a newer profile or resurrect an account from an earlier request.
+      wr(LS_U, Object.assign({}, user(), { lastSync }));
+      const changed = snapshotKey(snapshot()) !== snapshotKey(sent);
+      if (changed) run.pending = true;
+      setSyncState(identity, changed ? 'waiting' : 'synced', lastSync); return true;
+    } catch (error) { if (current()) setSyncState(identity, 'error'); return false; }
+    finally { if (syncRun === run) { syncRun = null; if (run.pending && current() && !['signin', 'blocked', 'ownership', 'error'].includes(syncStatus().phase)) setTimeout(() => { if (current()) sync(true); }, 0); } }
+  }
+  window.addEventListener('storage', event => {
+    if (event.key !== LS_U && event.key !== LS_OWNER && event.key !== null) return;
+    if (event.key === LS_U) {
+      let previous = null; try { previous = JSON.parse(event.oldValue); } catch (error) {}
+      const currentUser = user();
+      if (identityKey(previous) === identityKey(currentUser) && (previous && previous.id) === (currentUser && currentUser.id)) return;
+    }
+    resetSyncSession(); refreshSyncStatus(); render();
+  });
   /* ───── إشعارات المدرب (شبه لحظية) ───── */
   function notifBox() { let b = document.getElementById('tfNotifs'); if (!b) { b = document.createElement('div'); b.id = 'tfNotifs'; b.style.cssText = 'position:fixed;top:14px;inset-inline-end:14px;z-index:2147483600;display:flex;flex-direction:column;gap:8px;max-width:360px'; document.body.appendChild(b); } return b; }
   function showNotif(n) {
@@ -139,11 +253,12 @@
     setTimeout(() => { d.style.transition = '.4s'; d.style.opacity = '0'; setTimeout(() => d.remove(), 400); }, 12000);
   }
   async function pollNotifs() {
-    const u = user(); if (!u || !u.token || u.local) return;
+    const u = user(), identity = identityKey(u), epoch = syncEpoch; if (!identity || ['signin', 'blocked'].includes(syncStatus().phase)) return;
     try {
       const since = +(localStorage.getItem('tf_notif_seen') || 0);
-      const r = await api(`/api/notify?id=${encodeURIComponent(u.id)}&token=${encodeURIComponent(u.token)}&since=${since}`);
-      if (r.ok && r.j.notifs && r.j.notifs.length) {
+      const r = await api(`/api/notify?since=${since}`, { headers: { 'content-type': 'text/plain', 'x-learner-id': u.id, authorization: 'Bearer ' + u.token } });
+      if (epoch !== syncEpoch || identityKey(user()) !== identity) return;
+      if (r.ok && r.j.ok === true && r.j.authenticated === true && r.j.learnerId === u.id && activeAccount(r.j.user, u.id, u.phone) && Array.isArray(r.j.notifs) && r.j.notifs.length) {
         r.j.notifs.slice().sort((a, b) => a.ts - b.ts).forEach(showNotif);
         const maxTs = Math.max(...r.j.notifs.map(n => n.ts));
         localStorage.setItem('tf_notif_seen', String(maxTs));
@@ -158,7 +273,7 @@
     opts = opts || {}; if (document.getElementById('tfReg')) return;
     const c = cfg(); const ov = document.createElement('div'); ov.id = 'tfReg';
     ov.innerHTML = `<div class="tfr-box" role="dialog" aria-modal="true">
-      <div class="tfr-h"><div class="tfr-k">TRACK FORD · GRCP COURSE</div><h2>${opts.login ? 'تسجيل الدخول' : 'تسجيل المتدرب'}</h2><p>سجّل مرة واحدة لتظهر محاضرات اليوم وتُحفظ نتائجك ويتابع المدرب تقدّمك.</p></div>
+      <div class="tfr-h"><div class="tfr-k">TRACK FORD · GRCP COURSE</div><h2>${opts.login ? 'تسجيل الدخول' : 'تسجيل المتدرب'}</h2><p>ادخل إلى حساب الخادم أو سجّل حسابًا جديدًا لإرسال نتائج هذا المتصفح إلى المدرب. لن تُرسل بيانات نموذج التسجيل إلا بعد الضغط على دخول أو تسجيل.</p></div>
       <form class="tfr-f" id="tfRegForm">
         <label class="n">الاسم الكامل<input name="name" required minlength="3" placeholder="مثال: محمد بن عبدالله"></label>
         <label>رقم الجوال<input name="phone" required inputmode="tel" placeholder="05xxxxxxxx" dir="ltr"></label>
@@ -194,40 +309,39 @@
     form.onsubmit = async e => {
       e.preventDefault(); if (!active || submitting) return;
       const fd = Object.fromEntries(new FormData(form).entries()), login = !!form.dataset.login;
-      const attempt = ++revision, controller = new AbortController(); pending = controller; submitting = true;
-      const current = () => active && revision === attempt && document.getElementById('tfReg') === ov;
+      const attempt = ++revision, startingEpoch = syncEpoch, controller = new AbortController(); pending = controller; submitting = true;
+      const current = () => active && revision === attempt && syncEpoch === startingEpoch && document.getElementById('tfReg') === ov;
       msg.textContent = 'جارٍ الاتصال…'; ov.querySelector('#tfRegGo').disabled = true;
       try {
         // The explicit form submission always tries the real service; a failed health probe must not create a local account.
         const r = await api('/api/reg', { method: 'POST', signal: controller.signal, body: JSON.stringify(Object.assign({ action: login ? 'login' : 'register' }, fd)) });
         if (!current()) return;
         if (!r.ok || r.j.ok !== true) {
-          const E = { bad_phone: 'رقم الجوال غير صحيح (05xxxxxxxx).', bad_pin: login ? 'الرقم السري غير صحيح.' : 'الرقم السري 4 إلى 6 أرقام.', bad_name: 'اكتب الاسم الكامل.', exists: 'هذا الجوال مسجّل برقم سري مختلف — اختر «لديّ حساب».', not_found: 'لا يوجد حساب بهذا الجوال — سجّل حسابًا جديدًا.' };
+          const E = { account_blocked: 'الحساب موقوف. تواصل مع المدرب؛ تقدّمك في هذا المتصفح محفوظ.', rate_limited: 'محاولات كثيرة. انتظر قليلًا ثم حاول مجددًا؛ تقدّمك محفوظ.', bad_phone: 'رقم الجوال غير صحيح (05xxxxxxxx).', bad_pin: login ? 'الرقم السري غير صحيح.' : 'الرقم السري 4 إلى 6 أرقام.', bad_name: 'اكتب الاسم الكامل.', exists: 'هذا الجوال مسجّل برقم سري مختلف — اختر «لديّ حساب».', not_found: 'لا يوجد حساب بهذا الجوال — سجّل حسابًا جديدًا.' };
           msg.textContent = E[r.j.error] || 'لم يكتمل التسجيل على الخادم. بياناتك وتقدّمك على هذا الجهاز محفوظان؛ حاول مجددًا.'; return;
         }
-        const normalizedPhone = value => String(value || '').replace(/\D/g, '').replace(/^00/, '').replace(/^966/, '0').replace(/^5/, '05');
-        if (!r.j.user || typeof r.j.user !== 'object' || Array.isArray(r.j.user) || r.j.local === true || r.j.user.local === true || r.j.user.guest === true || !/^[0-9a-f]{16}$/.test(r.j.user.id || '') || !/^[0-9a-f]{40}$/.test(r.j.token || '') || normalizedPhone(r.j.user.phone) !== normalizedPhone(fd.phone)) {
+        if (!r.j.user || typeof r.j.user !== 'object' || Array.isArray(r.j.user) || r.j.local === true || r.j.user.local === true || r.j.user.guest === true || !/^[0-9a-f]{16}$/.test(r.j.user.id || '') || !/^[0-9a-f]{40}$/.test(r.j.token || '') || !activeAccount(r.j.user, r.j.user.id, fd.phone)) {
           msg.textContent = 'لم نتمكّن من تأكيد التسجيل على الخادم. بياناتك وتقدّمك محفوظان؛ حاول مجددًا.'; return;
         }
         const u = Object.assign({}, r.j.user, { token: r.j.token });
-        setUser(u); close(); toast(r.j.created ? `أهلًا ${u.name} — تم تسجيلك في الدورة.` : `أهلًا بعودتك ${u.name}.`); sync(true);
+        setUser(u); preserveKnownOwner(u); close(); toast(r.j.created ? `أهلًا ${u.name} — تم تسجيلك في الدورة.` : `أهلًا بعودتك ${u.name}.`); sync(true);
       } catch (error) {
         if (current()) msg.textContent = 'تعذّر الاتصال بالخادم ولم يكتمل التسجيل. بياناتك وتقدّمك على هذا الجهاز محفوظان؛ حاول مجددًا.';
       } finally {
-        if (current()) { submitting = false; pending = null; ov.querySelector('#tfRegGo').disabled = false; }
+        if (active && revision === attempt && document.getElementById('tfReg') === ov) { submitting = false; pending = null; ov.querySelector('#tfRegGo').disabled = false; if (syncEpoch !== startingEpoch) msg.textContent = 'تغيّر الحساب أثناء الطلب. لم نعتمد الرد السابق؛ راجع الحساب ثم حاول مجددًا.'; }
       }
     };
   }
   function toast(m) { let t = document.getElementById('tfToast'); if (!t) { t = document.createElement('div'); t.id = 'tfToast'; document.body.appendChild(t); } t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 3200); }
-  function signOut() { try { localStorage.removeItem(LS_U); localStorage.removeItem('grcpUser'); } catch (e) {} location.reload(); }
+  function signOut() { preserveKnownOwner(user()); resetSyncSession(); try { localStorage.removeItem(LS_U); localStorage.removeItem('grcpUser'); } catch (e) {} location.reload(); }
 
   /* ───── شريحة المستخدم (تُعرض في شريط التكامل) ───── */
   function chip() {
-    const u = user(), t = today(), snap = snapshot();
+    const u = user(), t = today(), snap = snapshot(), status = syncStatus();
     const dayTxt = !scheduled() ? L('النظام مفتوح — كل الأيام متاحة', 'Open — all days available') : t === 0 ? L('قبل بدء الدورة', 'Before the course') : t === 6 ? L('ما بعد الدورة', 'After the course') : L(`اليوم ${t} · ${DAYS[t - 1].ar}`, `Day ${t} · ${DAYS[t - 1].en}`);
-    return `<span class="tfc-chip">${u ? `👤 <b>${esc(u.name)}</b>${u.group && u.group !== 'عام' ? ` · ${esc(u.group)}` : ''}${u.local ? ' <small>' + L('(محلي)', '(local)') + '</small>' : ''}` : '👤 ' + L('غير مسجّل', 'Not registered')}</span><span class="tfc-chip day">📅 ${dayTxt}</span><span class="tfc-chip">📈 ${L('تقدّمي', 'My progress')} ${snap.overall}%</span><a class="tfc-link" href="${A}#/course">${L('مسار الدورة', 'Course track')}</a><a class="tfc-link" href="trainer.html">${L('دخول المدرب', 'Trainer')}</a>${u && u.local && !u.guest ? `<button type="button" class="tfc-out" data-tfc="online">${L('تسجيل على الخادم', 'Register online')}</button>` : ''}${u ? `<button type="button" class="tfc-out" data-tfc="out">${L('خروج', 'Sign out')}</button>` : `<button type="button" class="tfc-out" data-tfc="reg">${L('تسجيل', 'Register')}</button>`}`;
+    return `<span class="tfc-chip">${u ? `👤 <b>${esc(u.name)}</b>${u.group && u.group !== 'عام' ? ` · ${esc(u.group)}` : ''}${u.local ? ' <small>' + L('(محلي)', '(local)') + '</small>' : ''}` : '👤 ' + L('غير مسجّل', 'Not registered')}</span><span class="tfc-chip day">📅 ${dayTxt}</span><span class="tfc-chip">📈 ${L('تقدّمي', 'My progress')} ${snap.overall}%</span><a class="tfc-link" href="${A}#/course">${L('مسار الدورة', 'Course track')}</a><a class="tfc-link" href="trainer.html">${L('دخول المدرب', 'Trainer')}</a><span class="tfc-chip" data-tfc-sync-short data-phase="${status.phase}" title="${esc(status.text)}" role="status" aria-live="polite">${esc(syncShort(status.phase))}</span><span data-tfc-sync-actions>${syncActions(status.phase)}</span>${u ? `<button type="button" class="tfc-out" data-tfc="out">${L('خروج', 'Sign out')}</button>` : `<button type="button" class="tfc-out" data-tfc="reg">${L('تسجيل', 'Register')}</button>`}`;
   }
-  document.addEventListener('click', e => { const b = e.target.closest('[data-tfc]'); if (!b) return; if (b.dataset.tfc === 'out') { if (confirm('تسجيل الخروج من هذا الجهاز؟')) signOut(); } else regModal(); });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-tfc]'); if (!b) return; if (b.dataset.tfc === 'out') { if (confirm('تسجيل الخروج من هذا الجهاز؟')) signOut(); } else if (b.dataset.tfc === 'sync') sync(true); else regModal({ login: b.dataset.tfc === 'login' }); });
 
   /* ───── مسار الدورة (واجهة) ───── */
   function mountTrack(host, sel) {
@@ -237,7 +351,7 @@
       <section class="tfc-hero" style="--c:${d.col}"><div><div class="tfc-k">GRCP® COURSE · TRACK FORD · ${sched ? (t ? (t === 6 ? 'AFTER COURSE' : 'DAY ' + t) : 'PRE-COURSE') : 'SELF-PACED'}</div>
         <h2>${u ? L(`أهلًا ${esc(u.name)}`, `Welcome ${esc(u.name)}`) : L('أهلًا بك في مسار الدورة', 'Welcome to the course track')}${u && u.group && u.group !== 'عام' ? ` <small>${esc(u.group)}</small>` : ''}</h2>
         <p>${!sched ? L('النظام مفتوح لأي تاريخ: الأيام الخمسة متاحة بالكامل — تنقّل بينها ونفّذ المحاضرات والأنشطة والألعاب والمصمّمات بأي ترتيب وبأي وقت يناسبك.', 'Open for any date: all five days are fully available — move between them and work through the lectures, activities, games and builders in any order, any time.') : t === 0 ? L(`تبدأ الدورة ${dateOf(1)}. والأيام كلها متاحة للاطّلاع الآن.`, `The course starts ${dateOf(1)}. All days are available to preview now.`) : t === 6 ? L('انتهت أيام الدورة — كل الأيام متاحة للمراجعة، والتركيز الآن على الاختبار الحقيقي.', 'Course days are over — all days are open for review; focus now on the real exam.') : L(`اليوم هو اليوم ${t} من 5: <b>${DAYS[t - 1].ar}</b>. كل الأيام متاحة؛ ركّز على بنود يومك ثم انتقل كما تحب.`, `Today is Day ${t} of 5: <b>${DAYS[t - 1].en}</b>. All days are open; focus on today's items then move freely.`)}</p>
-        ${!u ? `<button type="button" class="tfc-btn gold" data-tfc="reg">${L('سجّل الآن ليُحفظ تقدّمك', 'Register now to save your progress')}</button>` : (u.local ? '<div class="tfc-note">⚠️ التقدّم محفوظ على هذا الجهاز فقط. <button type="button" class="tfc-mini" id="tfcCode">نسخ كود تقدّمي للمدرب</button></div>' : `<div class="tfc-note">✅ تقدّمك يُزامَن مع لوحة المدرب${u.lastSync ? ' · آخر مزامنة ' + new Date(u.lastSync).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : ''}</div>`)}
+        ${syncBanner()}${u && u.local ? '<button type="button" class="tfc-mini" id="tfcCode">نسخ كود تقدّمي للمدرب</button>' : ''}
         </div><div class="tfc-ring" style="--p:${snap.overall}"><b>${snap.overall}%</b><span>${L('تقدّمي الإجمالي', 'Overall progress')}</span></div></section>
       <nav class="tfc-days">${DAYS.map(x => { const q = dayProgress(x); const dt = dateOf(x.n); return `<button type="button" data-d="${x.n}" class="${x.n === cur ? 'on' : ''} ${x.n === t ? 'today' : ''}" style="--c:${x.col}"><span class="dn">${x.n === t ? '📍' : q.pct === 100 ? '✅' : x.n}</span><span class="dt">${L('اليوم', 'Day')} ${x.n}</span><span class="dd">${dn(x)}</span><span class="dp"><i style="width:${q.pct}%"></i></span><small>${dt ? dt + ' · ' : ''}${q.pct}%</small></button>`; }).join('')}</nav>
       <section class="tfc-day" style="--c:${d.col}"><div class="tfc-dh"><h3>${L('اليوم', 'Day')} ${d.n} — ${dn(d)} <span class="en">${EN() ? d.ar : d.en}</span></h3><div class="tfc-dp">${p.done} / ${p.total} ${L('بند مكتمل', 'items done')}</div></div>
@@ -277,8 +391,17 @@
   document.head.appendChild(css);
 
   /* ───── الإقلاع ───── */
-  function render() { try { window.TFB && window.TFB.render(); } catch (e) {} }
-  async function loadServerConfig() { try { const r = await api('/api/progress'); if (r.ok && r.j.config && r.j.config.start) { wr(LS_CFG, Object.assign(cfg(), r.j.config)); render(); } } catch (e) {} }
+  function render() { try { window.TFB && window.TFB.render(); } catch (e) {} refreshSyncStatus(); }
+  async function loadServerConfig() {
+    try {
+      const r = await api('/api/progress'), incoming = r.j && r.j.config;
+      if (!r.ok || r.j.ok !== true || !incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return;
+      const patch = {};
+      if (typeof incoming.start === 'string' && (incoming.start === '' || /^\d{4}-\d{2}-\d{2}$/.test(incoming.start) && !isNaN(new Date(incoming.start + 'T00:00:00').getTime()))) patch.start = incoming.start;
+      if (Array.isArray(incoming.groups) && incoming.groups.length > 0 && incoming.groups.length <= 100 && incoming.groups.every(group => typeof group === 'string' && group.trim() === group && group.length > 0 && group.length <= 40)) patch.groups = incoming.groups.slice();
+      if (Object.keys(patch).length) { wr(LS_CFG, Object.assign(cfg(), patch)); render(); }
+    } catch (error) {}
+  }
   function boot() {
     if (page === 'trainer') return;
     if (/[?&]all=1/.test(location.search)) wr('tf_unlock', 1);
@@ -290,8 +413,8 @@
     if (!localStorage.getItem('tf_notif_seen')) { const u = user(); if (u && !u.local) localStorage.setItem('tf_notif_seen', String(u.created || Date.now())); }
     setTimeout(pollNotifs, 6000); setInterval(() => { if (!document.hidden) pollNotifs(); }, 20000);
     document.addEventListener('visibilitychange', () => { if (document.hidden) sync(true); else { sync(); pollNotifs(); } });
-    window.addEventListener('beforeunload', () => { const u = user(); if (u && u.token && !u.local) { try { fetch((window.TF_API_BASE||'')+'/api/progress', { method:'POST', headers:{'content-type':'text/plain'}, body: JSON.stringify({ id: u.id, token: u.token, snapshot: snapshot() }), keepalive:true }); } catch (e) {} } });
+    window.addEventListener('beforeunload', () => { sync(true, true); });
   }
-  window.TFC = { DAYS, cfg, scheduled, EN, L, today, dayIndex, unlocked, user, setUser, regModal, snapshot, dayProgress, sync, mark, seen, chip, mountTrack, signOut, dayOfLecture, toast };
+  window.TFC = { DAYS, cfg, scheduled, EN, L, today, dayIndex, unlocked, user, setUser, regModal, snapshot, dayProgress, sync, syncStatus, mark, seen, chip, mountTrack, signOut, dayOfLecture, toast };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
