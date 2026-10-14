@@ -193,12 +193,12 @@
   let lastSync = 0, syncRun = null, syncEpoch = 0, ownershipHold = false, captureEnabled = false;
   let syncState = { identity: '', phase: 'waiting', at: 0 };
   let captureLoadState = 'loading';
-  let serverState = { identity: '', restored: false, snapshot: null, participation: null };
+  let serverState = { identity: '', restored: false, snapshot: null, participation: null, manualBonus: null, manualBonusAvailable: false };
   function resetSyncSession() {
     syncEpoch++; lastSync = 0; ownershipHold = false; captureEnabled = false;
     if (syncRun) syncRun.controller.abort();
     syncRun = null; syncState = { identity: '', phase: 'waiting', at: 0 };
-    serverState = { identity: '', restored: false, snapshot: null, participation: null };
+    serverState = { identity: '', restored: false, snapshot: null, participation: null, manualBonus: null, manualBonusAvailable: false };
     try { window.dispatchEvent(new CustomEvent('tfc:participation-account')); } catch (error) {}
   }
   function baselineFor(u) {
@@ -249,6 +249,27 @@
       (j.snapshot === null ? !requireParticipation && j.participation === null : validSnapshot(j.snapshot)) &&
       (j.participation === null ? !requireParticipation : validParticipation(j.participation) && object(j.snapshot) && j.snapshot.points === j.participation.totalPoints);
   }
+  // Trainer adjustments are a separate, reversible server-owned balance. Never hydrate
+  // them into native work, automatic participation, or a local baseline/queue.
+  function validManualSummary(j) {
+    const p = j.participation, course = j.snapshot && number(j.snapshot.points,200000) ? j.snapshot.points : null;
+    const account = j.user, incarnation = account.bonusIdentity === undefined ? (account.created === undefined ? 'legacy' : String(account.created)) : account.bonusIdentity;
+    if (account.bonusIdentity !== undefined && (typeof account.bonusIdentity !== 'string' || !/^a_[0-9a-f]{32}$/.test(account.bonusIdentity))) return null;
+    if (account.created !== undefined && (!Number.isSafeInteger(account.created) || account.created < 0)) return null;
+    if (typeof incarnation !== 'string' || !(incarnation === 'legacy' || /^a_[0-9a-f]{32}$/.test(incarnation) || /^(0|[1-9][0-9]{0,15})$/.test(incarnation) && Number.isSafeInteger(Number(incarnation)))) return null;
+    if ('manualBonusError' in j || !Number.isSafeInteger(j.manualBonusPoints) || !number(j.manualBonusPoints,1000000) || !Number.isSafeInteger(j.manualBonusRevision) || j.manualBonusRevision < 0 || j.manualBonusIncarnation !== incarnation) return null;
+    if (j.legacyPoints !== (p ? p.legacyPoints : course) || j.automaticPoints !== (p ? p.earnedPoints : course === null ? null : 0)) return null;
+    if (course === null ? j.rankingPoints !== null : !number(j.rankingPoints,1200000) || j.rankingPoints !== course + j.manualBonusPoints) return null;
+    return { points:j.manualBonusPoints, revision:j.manualBonusRevision, incarnation };
+  }
+  function acceptManualSummary(j, identity) {
+    const previous = serverState.identity === identity ? serverState.manualBonus : null, incoming = validManualSummary(j);
+    // Keep the verified watermark even after a malformed/unavailable read, so an old
+    // response cannot restore an already reversed bonus. It is never persisted.
+    if (!incoming || previous && (incoming.incarnation !== previous.incarnation || incoming.revision === previous.revision && incoming.points !== previous.points)) return { manualBonus:previous, manualBonusAvailable:false };
+    if (previous && incoming.revision < previous.revision) return { manualBonus:previous, manualBonusAvailable:serverState.manualBonusAvailable };
+    return { manualBonus:incoming, manualBonusAvailable:true };
+  }
   function ownIncarnation(u, p) {
     const key = INSTANCE_KEY + u.id + ':' + u.created;
     try {
@@ -260,7 +281,11 @@
   }
   function savedSummary() {
     if (serverState.identity !== identityKey(user()) || !serverState.restored) return null;
-    return JSON.parse(JSON.stringify({ snapshot: serverState.snapshot, participation: serverState.participation }));
+    const manual = serverState.manualBonusAvailable && serverState.manualBonus;
+    const course = serverState.snapshot && number(serverState.snapshot.points,200000) ? serverState.snapshot.points : null;
+    return JSON.parse(JSON.stringify({ snapshot: serverState.snapshot, participation: serverState.participation,
+      manualBonusPoints:manual ? manual.points : null, rankingPoints:manual && course !== null ? course + manual.points : null,
+      manualBonusRevision:manual ? manual.revision : null, manualBonusIncarnation:manual ? manual.incarnation : null }));
   }
   function snapshot() {
     const local = nativeSnapshot(), saved = savedSummary();
@@ -302,7 +327,11 @@
     const saved = savedSummary(), p = saved && saved.participation, snap = saved && saved.snapshot;
     if (!saved) return `<section class="tfc-note" data-tfc-account-summary><b>${L('نقاط المشاركة', 'Participation points')}</b><p>${serverIdentity(user()) ? L('تظهر نقاطك المحفوظة بعد التحقق من الحساب واستعادة ملخصه.', 'Your saved points appear after your account is verified and its summary restored.') : L('سجّل الدخول بحساب الخادم لاحتساب النقاط وحفظها لحسابك.', 'Sign in to a server account to earn and save participation points.')}</p></section>`;
     const pct = snap && number(snap.overall,100) ? snap.overall + '%' : '—';
-    return `<section class="tfc-note" data-tfc-account-summary><b>${L('ملخص الحساب المحفوظ على الخادم', 'Saved account summary')} · ${esc((user() || {}).name || '')}</b><p>🏆 ${p ? p.totalPoints : (snap && number(snap.points,200000) ? snap.points : '—')} ${L('نقطة', 'points')} · ${L('التقدّم المحفوظ', 'Saved progress')}: ${pct}</p>${p ? `<p>${L('رصيد سابق محفوظ', 'Preserved earlier balance')}: ${p.legacyPoints} · ${L('نقاط مشاركة مكتسبة', 'Earned participation points')}: ${p.earnedPoints}<br>${L('أسئلة محتسبة', 'Credited questions')}: ${p.questionCount} × 1 · ${L('أنشطة مكتملة', 'Completed activities')}: ${p.activityCount} × 5</p>` : ''}<small>${L('نقطة لكل سؤال مختلف بعد إرساله أو تصحيحه، و5 نقاط لكل نشاط مكتمل، مرة واحدة لكل إنجاز وحساب. درجات الاختبارات منفصلة. تفاصيل الإجابات وقائمة الأنشطة أدناه تخص هذا المتصفح؛ لا يعيد الملخص إجابات الأجهزة الأخرى.', '1 point per unique submitted or checked question and 5 per completed activity, once per achievement and account. Exam grades are separate. Answers and the activity checklist below belong to this browser; the summary does not restore answers from other devices.')}</small><details style="margin-top:6px"><summary>${L('الأنشطة المشمولة', 'Covered activities')}</summary><small>${L('أسئلة محاضرات واختبارات الأكاديمية والتدريب القصير، وأوضاع الساحة عند إكمالها، وأسئلة النظام المصححة وأدواته المحفوظة بعد التحقق، وعلامات إنجاز خطة الدراسة التي يحددها المتدرب. مسودات المصمّمات والحالات والفتح أو كشف الإجابة وحدها لا تضيف نقاطًا.', 'Academy lecture, exam and short-practice questions; completed arena modes; checked System questions and validated saved tools; and learner-reported study-plan check-offs. Builder and case drafts, opening content, or revealing an answer alone do not add points.')}</small></details></section>`;
+    const course = p ? p.totalPoints : (snap && number(snap.points,200000) ? snap.points : null);
+    const manualKnown = saved.manualBonusPoints !== null, totalKnown = saved.rankingPoints !== null;
+    const headline = totalKnown ? saved.rankingPoints : (course === null ? '—' : course);
+    const manualHTML = `<p>${L('إضافات المدرب اليدوية', 'Trainer manual adjustments')}: <span data-tfc-manual-points>${manualKnown ? saved.manualBonusPoints : L('غير مؤكدة حاليًا', 'Currently unconfirmed')}</span> · ${L('الإجمالي مع إضافات المدرب', 'Combined total with trainer adjustments')}: <span data-tfc-ranking-points>${totalKnown ? saved.rankingPoints : '—'}</span></p>`;
+    return `<section class="tfc-note" data-tfc-account-summary><b>${L('ملخص الحساب المحفوظ على الخادم', 'Saved account summary')} · ${esc((user() || {}).name || '')}</b><p>🏆 ${headline} ${totalKnown ? L('نقطة إجمالية', 'combined points') : L('نقطة مشاركة محفوظة', 'saved participation points')} · ${L('التقدّم المحفوظ', 'Saved progress')}: ${pct}</p>${p ? `<p>${L('رصيد سابق محفوظ', 'Preserved earlier balance')}: ${p.legacyPoints} · ${L('نقاط مشاركة تلقائية مكتسبة', 'Earned automatic participation points')}: ${p.earnedPoints}<br>${L('أسئلة محتسبة', 'Credited questions')}: ${p.questionCount} × 1 · ${L('أنشطة مكتملة', 'Completed activities')}: ${p.activityCount} × 5</p>` : (course !== null ? `<p>${L('رصيد سابق محفوظ', 'Preserved earlier balance')}: ${course}</p>` : '')}${manualHTML}<small>${L('نقطة لكل سؤال مختلف بعد إرساله أو تصحيحه، و5 نقاط لكل نشاط مكتمل، مرة واحدة لكل إنجاز وحساب. إضافات المدرب اليدوية منفصلة وقد تنخفض عند عكس إضافة. درجات الاختبارات منفصلة. تفاصيل الإجابات وقائمة الأنشطة أدناه تخص هذا المتصفح؛ لا يعيد الملخص إجابات الأجهزة الأخرى.', '1 point per unique submitted or checked question and 5 per completed activity, once per achievement and account. Trainer adjustments are separate and may decrease after a reversal. Exam grades are separate. Answers and the activity checklist below belong to this browser; the summary does not restore answers from other devices.')}</small><details style="margin-top:6px"><summary>${L('الأنشطة المشمولة', 'Covered activities')}</summary><small>${L('أسئلة محاضرات واختبارات الأكاديمية والتدريب القصير، وأوضاع الساحة عند إكمالها، وأسئلة النظام المصححة وأدواته المحفوظة بعد التحقق، وعلامات إنجاز خطة الدراسة التي يحددها المتدرب. مسودات المصمّمات والحالات والفتح أو كشف الإجابة وحدها لا تضيف نقاطًا.', 'Academy lecture, exam and short-practice questions; completed arena modes; checked System questions and validated saved tools; and learner-reported study-plan check-offs. Builder and case drafts, opening content, or revealing an answer alone do not add points.')}</small></details></section>`;
   }
   function renderSavedSummary() {
     document.querySelectorAll('[data-tfc-account-summary]').forEach(node => { node.outerHTML = participationSummaryHTML(); });
@@ -381,7 +410,7 @@
       else { if (r.j.error === 'stale_participation_incarnation') ownershipHold = true; setSyncState(identity,ownershipHold ? 'ownership' : 'error'); }
       return false;
     };
-    const accept = r => { serverState = { identity, restored:true, snapshot:r.j.snapshot, participation:r.j.participation }; renderSavedSummary(); };
+    const accept = r => { const manual = acceptManualSummary(r.j,identity); serverState = { identity, restored:true, snapshot:r.j.snapshot, participation:r.j.participation, ...manual }; renderSavedSummary(); };
     try {
       if (!serverState.restored || serverState.identity !== identity) {
         setSyncState(identity,'restoring');
