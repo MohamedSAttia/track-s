@@ -21,7 +21,9 @@
     if (loaded[local]) return loaded[local];
     return loaded[local] = new Promise((ok, no) => {
       const add = (src, fb) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fb ? add(fb) : no(new Error('load ' + src)); document.head.appendChild(s); };
-      add(BASE + local, cdn);
+      const alt = /^vendor\//.test(local) ? BASE + local.replace(/^vendor\//, '') : null;
+      const add2 = (src, list) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => { s.remove(); list.length ? add2(list[0], list.slice(1)) : no(new Error('load ' + local)); }; document.head.appendChild(s); };
+      add2(BASE + local, [alt, cdn].filter(Boolean));
     });
   }
   async function libs() {
