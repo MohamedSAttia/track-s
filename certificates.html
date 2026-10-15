@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noai,noimageai">
+<title>الشهادات والإفادات · لوحة المدرب · Track Ford</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&display=swap">
+<style>
+:root{--navy:#0A1B3D;--navy2:#13295A;--ink:#06122B;--gold:#C9973B;--gold2:#E2B85A;--cream:#FBF8F2;--line:#E7DCC6;--chip:#F6EEDC;--mut:#5B6476;--ok:#15803D;--warn:#B42318;--amb:#8a5a00}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:#1B2436;font:15px/1.6 Rubik,Tahoma,sans-serif}
+header{background:var(--ink);border-bottom:3px solid var(--gold);color:#fff}header .in{max-width:1400px;margin:0 auto;padding:14px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+header .k{font:700 11px Rubik;letter-spacing:.18em;color:var(--gold2)}header h1{margin:2px 0 0;font-size:21px}header nav{margin-inline-start:auto;display:flex;gap:6px;flex-wrap:wrap}
+header nav a,header nav button{color:#D5DBE7;text-decoration:none;padding:6px 12px;border-radius:999px;border:1px solid rgba(226,184,90,.4);background:none;font:inherit;font-size:13.5px;cursor:pointer}
+main{max-width:1400px;margin:0 auto;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px;box-shadow:0 6px 22px rgba(10,27,61,.07)}
+.card h3{margin:0 0 10px;color:var(--navy)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}.kpi b{display:block;font-size:28px;color:var(--navy)}.kpi small{color:var(--mut)}.kpi.p b{color:var(--amb)}.kpi.a b{color:var(--ok)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}.chip{border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:inherit}
+.btn{border:1.5px solid var(--gold);background:var(--navy);color:#fff;border-radius:999px;padding:7px 14px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}.btn.g{background:linear-gradient(180deg,#F2D584,#D4A84C);color:var(--ink)}.btn.o{background:#fff;color:var(--navy)}.btn.r{background:#fff;color:var(--warn);border-color:#f3b4ad}.btn:disabled{opacity:.45}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th{background:var(--navy);color:#fff;font-weight:500;padding:8px;text-align:right;position:sticky;top:0;white-space:nowrap}td{border-bottom:1px solid var(--line);padding:8px;vertical-align:top}tr:nth-child(even) td{background:#FDFBF6}
+.tbl{overflow:auto;max-height:70vh;border-radius:12px;border:1px solid var(--line)}
+td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5px;flex-wrap:wrap}
+.st{border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;white-space:nowrap}.st.pending{background:#FFF4DB;color:var(--amb)}.st.approved{background:#E6F4EA;color:var(--ok)}.st.rejected,.st.revoked{background:#FDECEA;color:var(--warn)}.st.none{background:#EEF1F6;color:var(--mut)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#C8CFDA;margin-inline-end:5px}.dot.on{background:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.2)}
+.pg{height:7px;background:var(--chip);border-radius:9px;min-width:80px;position:relative;margin-top:4px}.pg i{position:absolute;inset-block:0;right:0;background:var(--navy);border-radius:9px}
+.mut{color:var(--mut);font-size:12.5px}.login{max-width:380px;margin:60px auto;text-align:center}.login input{width:100%;text-align:center;font-size:20px;letter-spacing:.3em}
+.set{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.set label{display:grid;gap:4px;font-size:12.5px;color:var(--mut)}
+#pv{position:fixed;inset:0;background:rgba(6,18,43,.75);z-index:50;display:none;align-items:center;justify-content:center;padding:14px}#pv.on{display:flex}#pv .bx{background:var(--cream);border-radius:16px;max-width:1150px;width:100%;max-height:94vh;overflow:auto;padding:14px;border:2px solid var(--gold)}
+#pv .two{display:grid;grid-template-columns:1.42fr 1fr;gap:12px}#pv .two>div{box-shadow:0 6px 20px rgba(0,0,0,.2);border-radius:8px;overflow:hidden;background:#fff}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;border:1.5px solid var(--gold);border-radius:12px;padding:10px 16px;opacity:0;transition:.3s;z-index:60}#toast.on{opacity:1}
+.foot{text-align:center;color:var(--mut);font-size:12.5px;padding:18px}.foot b{color:var(--gold)}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.set{grid-template-columns:1fr 1fr}#pv .two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="in"><div><div class="k">TRACK FORD · TRAINER CONSOLE · CERTIFICATION</div><h1>🎓 الشهادات والإفادات الرسمية — الموافقة والإصدار والمتابعة اللحظية</h1></div>
+<nav><a href="trainer.html">لوحة المدرب</a><a href="index.html">البوابة</a><button id="out" hidden>خروج</button></nav></div></header>
+<main id="main"></main>
+<div id="pv"><div class="bx"><div class="bar"><b id="pvT" style="flex:1"></b><button class="btn g" id="pvC">⬇️ الشهادة PDF</button><button class="btn g" id="pvA">⬇️ الإفادة PDF</button><button class="btn o" id="pvX">✕ إغلاق</button></div><div class="two"><div id="pv1"></div><div id="pv2"></div></div></div></div>
+<div id="toast"></div>
+<div class="foot">Track Ford GRC · <b>تصميم وبرمجة وإعداد: د. محمد عطية</b> · الشهادات تُتحقق مباشرة من سجل تراكفورد على الخادم</div>
+<script src="tf-config.js"></script>
+<script src="tf-cert.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s), esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const API = () => (window.TF_API_BASE || '').replace(/\/$/, '');
+  let PIN = sessionStorage.getItem('tf_trainer_pin') || '', U = [], C = {}, CFG = {}, F = 'pending', Q = '', timer = null, EDIT = {};
+  const toast = t => { const d = $('#toast'); d.textContent = t; d.classList.add('on'); clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('on'), 3500); };
+  const api = async (q, body) => { const r = await fetch(API() + '/api/trainer?pin=' + encodeURIComponent(PIN) + (q || ''), body ? { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(body) } : {}); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; };
+  const ERR = { bad_name_en: 'الاسم الإنجليزي يجب أن يكون بأحرف إنجليزية', bad_name_ar: 'الاسم العربي يجب أن يكون بأحرف عربية', names_required: 'أدخل الاسمين الإنجليزي والعربي قبل الاعتماد', bad_pin: 'الرقم السري غير صحيح', rate_limited: 'محاولات كثيرة — انتظر قليلًا' };
+  function login(msg) {
+    $('#out').hidden = true;
+    $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h3>دخول المدرب</h3><p class="mut">نفس الرقم السري للوحة المدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><p><button class="btn g" id="go">دخول</button></p><p class="mut" id="msg">${esc(msg || '')}</p></div>`;
+    $('#go').onclick = async () => { PIN = $('#pin').value.trim(); $('#msg').textContent = 'جارٍ التحقق…'; const ok = await load(); if (ok) { sessionStorage.setItem('tf_trainer_pin', PIN); start(); } };
+    $('#pin').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
+  }
+  async function load() {
+    try {
+      const [a, b] = await Promise.all([api(''), api('&view=certs')]);
+      if (!a.ok || !b.ok) { const e = (a.j && a.j.error) || (b.j && b.j.error) || 'offline'; if (a.status === 401) { sessionStorage.removeItem('tf_trainer_pin'); login(ERR.bad_pin); } else if ($('#msg')) $('#msg').textContent = 'تعذّر الاتصال: ' + (ERR[e] || e); return false; }
+      U = a.j.users || []; C = {}; (b.j.certs || []).forEach(c => C[c.id] = c); CFG = b.j.config || {}; return true;
+    } catch (e) { if ($('#msg')) $('#msg').textContent = 'تعذّر الاتصال بالخادم'; return false; }
+  }
+  const status = u => (C[u.id] && C[u.id].status) || 'none';
+  const ST = { none: 'لم يطلب', pending: 'بانتظار الموافقة', approved: 'معتمدة', rejected: 'مُعادة للتعديل', revoked: 'ملغاة' };
+  const live = u => u.lastSeen && Date.now() - u.lastSeen < 120000;
+  const ago = t => { if (!t) return '—'; const s = (Date.now() - t) / 1000; return s < 60 ? 'الآن' : s < 3600 ? Math.round(s / 60) + ' د' : s < 86400 ? Math.round(s / 3600) + ' س' : Math.round(s / 86400) + ' ي'; };
+  function render() {
+    const n = k => U.filter(u => status(u) === k).length;
+    const rows = U.filter(u => (F === 'all' || status(u) === F || (F === 'closed' && /rejected|revoked/.test(status(u)))) && (!Q || JSON.stringify([u.name, u.phone, u.group, u.org, C[u.id] && C[u.id].nameEn, C[u.id] && C[u.id].no]).toLowerCase().includes(Q.toLowerCase())))
+      .sort((a, b) => (status(a) === 'pending' ? 0 : 1) - (status(b) === 'pending' ? 0 : 1) || ((C[b.id] || {}).requestedAt || 0) - ((C[a.id] || {}).requestedAt || 0) || (b.lastSeen || 0) - (a.lastSeen || 0));
+    const focus = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f ? [document.activeElement.dataset.id, document.activeElement.dataset.f] : null;
+    $('#main').innerHTML = `<div class="kpis"><div class="kpi"><b>${U.length}</b><small>متدرب مسجّل</small></div><div class="kpi"><b>${U.filter(live).length}</b><small>نشط الآن 🟢</small></div><div class="kpi p"><b>${n('pending')}</b><small>طلبات بانتظار موافقتك</small></div><div class="kpi a"><b>${n('approved')}</b><small>شهادات معتمدة</small></div><div class="kpi"><b>${Math.round(U.reduce((a, u) => a + ((u.progress && u.progress.overall) || 0), 0) / Math.max(1, U.length))}%</b><small>متوسط التقدّم</small></div></div>
+      <div class="card"><div class="bar">${[['pending', 'بانتظار الموافقة', n('pending')], ['approved', 'المعتمدة', n('approved')], ['none', 'لم يطلبوا', n('none')], ['closed', 'مُعادة/ملغاة', n('rejected') + n('revoked')], ['all', 'الكل', U.length]].map(([k, t, c]) => `<button class="chip ${F === k ? 'on' : ''}" data-f2="${k}">${t} (${c})</button>`).join('')}
+        <input id="q" placeholder="🔎 بحث بالاسم أو الجوال أو المجموعة أو رقم الشهادة" value="${esc(Q)}" style="flex:1;min-width:220px">
+        <button class="btn g" id="bulk" ${n('pending') ? '' : 'disabled'}>✅ اعتماد كل الطلبات المعلّقة (${n('pending')})</button><span class="mut" id="upd">تحديث لحظي كل 20 ثانية</span></div>
+      <div class="tbl"><table><tr><th>المتدرب</th><th>التقدّم</th><th>الاسم في الشهادة (EN)</th><th>الاسم في الإفادة (AR)</th><th>الحالة</th><th>رقم الشهادة</th><th>إجراءات</th></tr>
+      ${rows.map(u => { const c = C[u.id] || {}, s = status(u), e = EDIT[u.id] || {}, p = u.progress || {}, ex = (p.scores && p.scores.examBest) || 0;
+        return `<tr><td><span class="dot ${live(u) ? 'on' : ''}"></span><b>${esc(u.name)}</b><div class="mut">${esc(u.group || '')}${u.org ? ' · ' + esc(u.org) : ''} · ${esc(u.phone || '')} · آخر ظهور ${ago(u.lastSeen)}</div></td>
+          <td><b>${p.overall || 0}%</b> <span class="mut">· اختبار ${ex ? ex + '%' : '—'}</span><div class="pg"><i style="width:${p.overall || 0}%"></i></div></td>
+          <td><input dir="ltr" data-id="${u.id}" data-f="nameEn" value="${esc(e.nameEn != null ? e.nameEn : (c.nameEn || ''))}" placeholder="English name"></td>
+          <td><input dir="rtl" data-id="${u.id}" data-f="nameAr" value="${esc(e.nameAr != null ? e.nameAr : (c.nameAr || (/[؀-ۿ]/.test(u.name || '') ? u.name : '')))}" placeholder="الاسم بالعربية"></td>
+          <td><span class="st ${s}">${ST[s]}</span>${c.requestedAt ? `<div class="mut">طلب ${ago(c.requestedAt)}</div>` : ''}${c.note ? `<div class="mut">📝 ${esc(c.note)}</div>` : ''}</td>
+          <td dir="ltr" style="text-align:right">${c.no ? `<b>${esc(c.no)}</b><div class="mut">${esc(c.verify || '')}</div>` : '—'}</td>
+          <td><div class="acts"><button class="btn g" data-a="approve" data-id="${u.id}">${s === 'approved' ? '💾 حفظ وإعادة الاعتماد' : '✅ اعتماد'}</button>${s === 'pending' ? `<button class="btn r" data-a="reject" data-id="${u.id}">↩️ إعادة للتعديل</button>` : ''}${s === 'approved' ? `<button class="btn r" data-a="revoke" data-id="${u.id}">⛔ إلغاء</button>` : ''}<button class="btn o" data-a="pv" data-id="${u.id}">👁️ معاينة</button></div></td></tr>`; }).join('') || '<tr><td colspan="7" class="mut">لا يوجد متدربون في هذا التصنيف.</td></tr>'}</table></div></div>
+      <details class="card"><summary><b>⚙️ بيانات الشهادة والإفادة (تُطبَّق على كل الوثائق)</b></summary><div class="set" style="margin-top:12px">${[['program', 'اسم البرنامج (EN)'], ['programAr', 'اسم البرنامج (AR)'], ['kind', 'نوع البرنامج (EN)'], ['kindAr', 'نوع البرنامج (AR)'], ['approvalNo', 'رقم اعتماد المؤسسة'], ['hours', 'الساعات'], ['dates', 'الفترة (EN)'], ['datesAr', 'الفترة (AR)'], ['signName', 'الموقّع (EN)'], ['signTitle', 'المنصب (EN)'], ['signNameAr', 'الموقّع (AR)'], ['signTitleAr', 'المنصب (AR)'], ['trainer', 'المدرب (EN)'], ['trainerAr', 'المدرب (AR)'], ['prefix', 'بادئة رقم الشهادة']].map(([k, t]) => `<label>${t}<input data-cfg="${k}" value="${esc(CFG[k] || '')}"></label>`).join('')}</div><div class="bar" style="margin-top:10px"><button class="btn g" id="saveCfg">💾 حفظ البيانات</button><span class="mut">تُستخدم في الوثائق الجديدة وفي صفحة التحقق. الشهادات الصادرة تبقى بأرقامها.</span></div></details>`;
+    $$('[data-f2]').forEach(b => b.onclick = () => { F = b.dataset.f2; render(); });
+    const q = $('#q'); q.oninput = () => { Q = q.value; clearTimeout(q._t); q._t = setTimeout(() => { render(); const z = $('#q'); z.focus(); z.setSelectionRange(Q.length, Q.length); }, 300); };
+    $$('input[data-f]').forEach(i => i.oninput = () => { (EDIT[i.dataset.id] = EDIT[i.dataset.id] || {})[i.dataset.f] = i.value; });
+    $$('[data-a]').forEach(b => b.onclick = () => act(b.dataset.a, b.dataset.id, b));
+    $('#bulk').onclick = bulk; $('#saveCfg').onclick = saveCfg;
+    if (focus) { const el = document.querySelector(`input[data-id="${focus[0]}"][data-f="${focus[1]}"]`); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+  }
+  const $$ = s => [...document.querySelectorAll(s)];
+  const names = id => { const tr = document.querySelector(`input[data-id="${id}"][data-f="nameEn"]`), ta = document.querySelector(`input[data-id="${id}"][data-f="nameAr"]`); return { nameEn: tr ? tr.value.trim() : '', nameAr: ta ? ta.value.trim() : '' }; };
+  async function act(a, id, b) {
+    const u = U.find(x => x.id === id), nm = names(id);
+    if (a === 'pv') return pv(u, nm);
+    let note = ''; if (a === 'reject') { note = prompt('سبب الإعادة (يظهر للمتدرب):', 'يرجى تصحيح كتابة الاسم'); if (note === null) return; }
+    if (a === 'revoke' && !confirm('إلغاء شهادة ' + u.name + '؟ ستظهر صفحة التحقق أنها ملغاة.')) return;
+    b.disabled = true;
+    const body = { action: 'cert_decide', id, decision: a, note }; if (a === 'approve') Object.assign(body, nm);
+    const r = await api('', body); b.disabled = false;
+    if (!r.ok) return toast('⚠️ ' + (ERR[r.j.error] || r.j.error || 'تعذّر التنفيذ'));
+    C[id] = r.j.cert; delete EDIT[id]; toast({ approve: '✅ اعتُمدت شهادة ' + u.name + ' — رقم ' + r.j.cert.no, reject: '↩️ أُعيد الطلب للمتدرب', revoke: '⛔ أُلغيت الشهادة' }[a]); render();
+  }
+  async function bulk() {
+    const ps = U.filter(u => status(u) === 'pending'); if (!confirm('اعتماد ' + ps.length + ' طلبًا بالأسماء المكتوبة؟')) return;
+    let ok = 0; for (const u of ps) { const r = await api('', Object.assign({ action: 'cert_decide', id: u.id, decision: 'approve' }, names(u.id))); if (r.ok) { C[u.id] = r.j.cert; ok++; } }
+    toast('✅ اعتُمد ' + ok + ' من ' + ps.length); render();
+  }
+  async function saveCfg() { const cert = Object.assign({}, CFG); $$('[data-cfg]').forEach(i => cert[i.dataset.cfg] = i.value.trim()); const r = await api('', { config: { cert } }); if (r.ok) { CFG = cert; toast('💾 حُفظت بيانات الشهادة'); } else toast('⚠️ تعذّر الحفظ'); }
+  async function pv(u, nm) {
+    const c = C[u.id] || {}, ok = c.status === 'approved';
+    const d = { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG), progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } };
+    $('#pvT').textContent = (ok ? '✅ ' : '👁️ معاينة (غير صادرة) — ') + (d.nameEn || u.name) + (ok ? ' · ' + c.no : '');
+    $('#pv1').replaceChildren(await window.TFCert.preview('cert', d)); $('#pv2').replaceChildren(await window.TFCert.preview('attest', d)); $('#pv').classList.add('on');
+    $('#pvC').onclick = () => window.TFCert.pdf('cert', d); $('#pvA').onclick = () => window.TFCert.pdf('attest', d);
+  }
+  $('#pvX').onclick = () => $('#pv').classList.remove('on');
+  $('#out').onclick = () => { sessionStorage.removeItem('tf_trainer_pin'); PIN = ''; clearInterval(timer); login(); };
+  function start() { $('#out').hidden = false; render(); clearInterval(timer); timer = setInterval(async () => { if (document.hidden) return; if (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f) return; if (await load()) render(); }, 20000); }
+  (async () => { if (PIN && await load()) start(); else login(); })();
+})();
+</script>
+</body>
+</html>

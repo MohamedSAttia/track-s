@@ -19,6 +19,7 @@
 
   function toast(t) { const d = $('#toast'); d.innerHTML = t; d.classList.add('on'); clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('on'), 4800); }
   const SMART = () => !!(window.TFAI && window.TFAI.ok);
+  const LTR = () => !!(window.TFS_I18N && window.TFS_I18N.lang === 'en');
 
   function regenerate(silent) {
     S.events.forEach((e, i) => { if (!e.id) e.id = 'EV-' + String(i + 1).padStart(2, '0'); });
@@ -205,16 +206,16 @@
     const t = TOOLS.T[SEL.tool], rows = S.ws[SEL.tool] || [];
     const L = S.log.find(l => l.st.some(x => x.el === code)), sx = L && L.st.find(x => x.el === code);
     const idx = window.TFS_EL.findIndex(x => x.c === code), prev = window.TFS_EL[idx - 1], next = window.TFS_EL[idx + 1];
-    return `<div class="crumb"><button class="lnk" data-act="openEl" data-el="">← كل العناصر</button>${prev ? `<button class="lnk" data-act="openEl" data-el="${prev.c}">→ ${prev.c}</button>` : ''}${next ? `<button class="lnk" data-act="openEl" data-el="${next.c}">${next.c} ←</button>` : ''}</div>
+    return `<div class="crumb"><button class="lnk" data-act="openEl" data-el="">← كل العناصر</button>${prev ? `<button class="lnk" data-act="openEl" data-el="${prev.c}">${LTR() ? '← ' + prev.c : '→ ' + prev.c}</button>` : ''}${next ? `<button class="lnk" data-act="openEl" data-el="${next.c}">${LTR() ? next.c + ' →' : next.c + ' ←'}</button>` : ''}</div>
       <div class="wsh" style="--c:${st[2]}"><b class="code lg">${code}</b><div><div class="kick">${st[0]} · ${st[1]}</div><h2>${esc(e.ar)} <small>${esc(e.en)}</small></h2><p>${esc(e.purpose)}</p></div><span class="mat">النضج الحالي ${ed(p + 'cur', e.cur)} · المستهدف ${ed(p + 'target', e.target)}</span></div>
       ${sx ? `<div class="card hl"><h3>⚡ دراسة الحدث ${esc(L.ev.id)} لهذا العنصر</h3><p><b>«${esc(L.ev.title)}»</b> — ${esc(sx.txt)}</p></div>` : ''}
       <div class="grid2 w37"><div class="card"><h3>🧭 ماذا سنفعل</h3><p><b>لماذا الآن؟</b> ${ed(p + 'why', e.why)}</p><ol>${e.actions.map((a, k) => `<li>${ed(p + 'actions.' + k, a)}</li>`).join('')}</ol>
           <div class="ef"><span>📦 ${ed(p + 'outputs', e.outputs.join('، '))}</span><span>👤 ${ed(p + 'owner', e.owner)}</span><span>📅 ${ed(p + 'due', e.due)}</span><span>🔗 ${e.linked.join(' ') || '—'}</span>
           <select data-k="${p}status">${['لم يبدأ', 'قيد التنفيذ', 'مكتمل'].map(x => `<option ${x === e.status ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
           <details><summary>ممارسات النموذج (${e.practices.length})</summary><ol>${e.practices.map(x => `<li>${esc(x)}</li>`).join('')}</ol></details></div>
-        <div class="card"><h3>⚡ مشكلة أو حادث أو قرار ظهر أثناء العمل على ${code}</h3>${evForm('el', code)}</div></div>
+        <div class="card"><h3><span>⚡ مشكلة أو حادث أو قرار ظهر أثناء العمل على</span> <span>${code}</span></h3>${evForm('el', code)}</div></div>
       <div class="card"><h3>📋 الأدوات والتقنيات (${ts.length})</h3><div class="ttabs">${ts.map(x => `<button class="${x === SEL.tool ? 'on' : ''}" data-act="selTool" data-t="${x}">${esc(TOOLS.T[x].ar)}<small>${(S.ws[x] || []).length}</small></button>`).join('')}</div>
-        <div class="wsbox"><div class="row sp"><div><h3 style="margin:0">${esc(t.ar)} <small class="mut">${esc(t.en)}</small></h3><p class="mut" style="margin:4px 0 0">💡 ${esc(t.how)}</p></div>
+        <div class="wsbox"><div class="row sp"><div><h3 style="margin:0">${esc(t.ar)} <small class="mut">${esc(t.en)}</small></h3><p class="mut" style="margin:4px 0 0">💡 <span>${esc(t.how)}</span></p></div>
           <div class="row"><button class="btn gold" data-act="wsGen">✨ توليد تلقائي</button><button class="btn ghost" data-act="wsAdd">➕ صف</button><button class="btn ghost" data-act="wsReset">↺ إعادة ضبط</button><button class="btn ghost" data-act="pvWs">👁️ معاينة / PDF / Word</button></div></div>
           <div class="tbl"><table class="wst"><tr><th>#</th>${t.cols.map(c => `<th>${esc(c)}</th>`).join('')}<th>المصدر</th><th></th></tr>
           ${rows.map((r, ri) => `<tr><td>${ri + 1}</td>${t.cols.map((c, ci) => `<td><span contenteditable="true" class="ed" data-ws="${SEL.tool}~${ri}~${ci}">${esc(r.c[ci] || '')}</span></td>`).join('')}<td>${srcB(r)}</td><td><button class="x" data-act="wsDel" data-i="${ri}" title="حذف">✕</button></td></tr>`).join('') || `<tr><td colspan="${t.cols.length + 3}" class="mut">لا صفوف — اضغط «توليد تلقائي» أو «➕ صف».</td></tr>`}</table></div></div></div>`;

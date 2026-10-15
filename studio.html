@@ -30,7 +30,7 @@ a{color:inherit}button{font:inherit;cursor:pointer}
 .pill{background:rgba(255,255,255,.08);border:1px solid rgba(226,184,90,.45);border-radius:999px;padding:5px 12px;font-size:13px}
 .layout{max-width:1440px;margin:0 auto;display:grid;grid-template-columns:250px 1fr;gap:18px;padding:18px 16px 60px}
 #tabs{position:sticky;top:12px;align-self:start;display:flex;flex-direction:column;gap:6px}
-#tabs button{display:flex;gap:10px;align-items:center;text-align:right;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--fg);font-weight:500;transition:.15s}
+#tabs button{display:flex;gap:10px;align-items:center;text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--fg);font-weight:500;transition:.15s}
 #tabs button span{font-size:18px}#tabs button:hover{border-color:var(--gold)}
 #tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:var(--sh)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-bottom:16px;box-shadow:var(--sh)}
@@ -78,7 +78,7 @@ input,select,textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid 
 .cc{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--cream)}.cc .ch{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.cc p{margin:8px 0;font-weight:500}
 .cc dl{display:grid;grid-template-columns:90px 1fr;gap:2px 8px;margin:0;font-size:13px}.cc dt{color:var(--muted)}.cc dd{margin:0}
 .polwrap{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start}.plist{position:sticky;top:12px}
-.pi{display:block;width:100%;text-align:right;background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin:6px 0;color:var(--fg)}
+.pi{display:block;width:100%;text-align:start;background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin:6px 0;color:var(--fg)}
 .pi b{display:block}.pi small{color:var(--muted)}.pi.on{background:var(--navy);color:#fff;border-color:var(--navy)}.pi.on small{color:#D5DBE7}
 .tools{position:sticky;top:0;background:var(--surface);z-index:2;padding-bottom:8px;border-bottom:1px solid var(--line);margin-top:0}
 .docview{background:#ECE8DF;padding:18px;border-radius:12px;outline:none;max-height:78vh;overflow:auto;color:#1B2436}
@@ -98,7 +98,7 @@ details summary{cursor:pointer;color:var(--gold);font-weight:500;font-size:13px}
 .road{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.ph{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--cream)}
 .phh{background:var(--navy);color:#fff;padding:10px 12px}.phh small{display:block;color:var(--gold2)}.ph ul{margin:8px 0;padding-inline:26px 10px;font-size:13.5px}.ph li{margin:5px 0}
 .outs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-.oc{text-align:right;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--sh);color:var(--fg);transition:.15s}.oc:hover{border-color:var(--gold);transform:translateY(-2px)}
+.oc{text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--sh);color:var(--fg);transition:.15s}.oc:hover{border-color:var(--gold);transform:translateY(-2px)}
 .oc span{font-size:28px}.oc b{display:block;color:var(--navy);font-size:16px;margin:4px 0}.oc p{margin:0;color:var(--muted);font-size:13.5px}
 #toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,40px);opacity:0;background:var(--navy);color:#fff;border:1.5px solid var(--gold);border-radius:14px;padding:12px 18px;z-index:99;transition:.3s;max-width:min(560px,92vw);box-shadow:var(--sh)}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -139,7 +139,7 @@ details summary{cursor:pointer;color:var(--gold);font-weight:500;font-size:13px}
 .stage{border-radius:var(--r);padding:14px;margin-bottom:16px;background:color-mix(in srgb,var(--c) 6%,var(--surface));border:1px solid color-mix(in srgb,var(--c) 30%,var(--line))}
 .stg-h{display:flex;gap:10px;align-items:baseline;margin-bottom:10px}.stg-h b{color:var(--c);font-size:19px}.stg-h i{font:700 12px var(--f-en);letter-spacing:.14em;color:var(--muted);font-style:normal}
 .egrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
-.ecard{position:relative;text-align:right;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:4px;color:var(--fg);transition:.15s;box-shadow:var(--sh)}
+.ecard{position:relative;text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:4px;color:var(--fg);transition:.15s;box-shadow:var(--sh)}
 .ecard:hover{border-color:var(--c);transform:translateY(-2px)}.ecard .code{align-self:flex-start;background:var(--c);color:#fff}.ecard .en2{font-size:15.5px}.ecard small{color:var(--muted);font-family:var(--f-en);font-size:11.5px}
 .ecard .mt{height:7px;background:var(--chip);border-radius:9px;position:relative;margin:6px 0 2px}.ecard .mt i{position:absolute;inset-block:0;right:0;background:var(--c);border-radius:9px}.ecard .mt em{position:absolute;top:-3px;width:3px;height:13px;background:var(--gold)}
 .ef2{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}.flash{position:absolute;top:8px;left:10px;font-size:18px;animation:pulse 1.4s infinite}
@@ -170,9 +170,9 @@ details summary{cursor:pointer;color:var(--gold);font-weight:500;font-size:13px}
   <nav aria-label="وحدات المنصة"><a href="index.html">الرئيسية</a><a href="academy.html">أكاديمية GRCP</a><a href="system.html">نظام تطبيق GRC</a><a href="navigator.html">المقيّم الذكي</a><a class="on" href="studio.html">استوديو GRC الذكي</a></nav>
 </div></div>
 <div class="bar1"><div class="wrap">
-  <div><div class="kick">TRACK FORD · GRC SMART STUDIO · v4.9</div><h1>استوديو <b>GRC</b> الذكي — GRC تفاعلي ديناميكي</h1></div>
+  <div><div class="kick">TRACK FORD · GRC SMART STUDIO · v5.0</div><h1 data-en="Smart <b>GRC</b> Studio — Interactive, Dynamic GRC">استوديو <b>GRC</b> الذكي — GRC تفاعلي ديناميكي</h1></div>
   <div class="st"><span class="pill">🏢 <b id="orgName"></b></span><span class="pill credit">✒️ تصميم وبرمجة وإعداد: <b>د. محمد عطية</b></span>
-  <button class="pill" style="color:#fff;cursor:pointer" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">🌓</button></div>
+  <button class="pill" id="langBtn" style="color:#fff;cursor:pointer;font-weight:700" onclick="TFS_I18N.set(TFS_I18N.lang==='en'?'ar':'en')">English</button><button class="pill" style="color:#fff;cursor:pointer" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">🌓</button></div>
 </div></div>
 <div class="layout"><nav id="tabs" aria-label="أقسام الاستوديو"></nav><main id="view"></main></div>
 <div class="foot"><b class="fc">تصميم وبرمجة وإعداد: د. محمد عطية</b><br>Track Ford GRC Smart Studio · مبني على نموذج قدرات GRC الإصدار 3.5 (OCEG) · المراجع التنظيمية توضيحية ويجب التحقق من أحدث إصدار قبل الاعتماد · البيانات تُحفظ في متصفحك فقط</div>
@@ -184,6 +184,7 @@ details summary{cursor:pointer;color:var(--gold);font-weight:500;font-size:13px}
 <script src="tf-studio-engine.js"></script>
 <script src="tf-studio-tools.js"></script>
 <script src="tf-studio-dyn.js"></script>
+<script src="tf-studio-i18n.js"></script>
 <script src="tf-studio-ui.js"></script>
 </body>
 </html>
