@@ -58,7 +58,17 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
   let PIN = sessionStorage.getItem('tf_trainer_pin') || '', U = [], C = {}, CFG = {}, F = 'pending', Q = '', timer = null, EDIT = {};
   const toast = t => { const d = $('#toast'); d.textContent = t; d.classList.add('on'); clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('on'), 3500); };
   const api = async (q, body) => { const r = await fetch(API() + '/api/trainer?pin=' + encodeURIComponent(PIN) + (q || ''), body ? { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(body) } : {}); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; };
-  const ERR = { bad_name_en: 'الاسم الإنجليزي يجب أن يكون بأحرف إنجليزية', bad_name_ar: 'الاسم العربي يجب أن يكون بأحرف عربية', names_required: 'أدخل الاسمين الإنجليزي والعربي قبل الاعتماد', bad_pin: 'الرقم السري غير صحيح', rate_limited: 'محاولات كثيرة — انتظر قليلًا' };
+  const ERR = { bad_name_en: 'الاسم الإنجليزي يجب أن يكون بأحرف إنجليزية', bad_name_ar: 'الاسم العربي يجب أن يكون بأحرف عربية', names_required: 'أدخل الاسمين الإنجليزي والعربي قبل الاعتماد', bad_pin: 'الرقم السري غير صحيح', rate_limited: 'محاولات كثيرة — انتظر قليلًا', cert_locked: 'الشهادة معتمدة ومقفلة — لا يمكن تعديلها بعد الاعتماد (يمكن إلغاؤها فقط)', certificate_write_conflict: 'تغيّرت بيانات هذا الطلب للتو — حدّث الصفحة وأعد المحاولة', cert_revoked: 'هذه الشهادة ملغاة', cert_not_approved: 'الشهادة غير معتمدة بعد', bad_rows: 'بنود الإفادة غير صالحة', invalid_certificate_config: 'بيانات الشهادة في الإعدادات غير صالحة', account_blocked: 'حساب المتدرب موقوف', certificate_account_changed: 'تغيّر حساب المتدرب — حدّث الصفحة' };
+  const REV = id => (C[id] && C[id].revision) || 'absent';
+  async function decide(body) {
+    let r = await api('', Object.assign({}, body, { expectedRevision: REV(body.id) }));
+    if (!r.ok && r.j && r.j.error === 'certificate_write_conflict') {
+      const f = await api('&view=certs'); if (f.ok) { (f.j.certs || []).forEach(c => C[c.id] = c); }
+      const s = (C[body.id] || {}).status; if (s === 'approved' || s === 'revoked') return { ok: false, j: { error: 'cert_locked' } };
+      r = await api('', Object.assign({}, body, { expectedRevision: REV(body.id) }));
+    }
+    return r;
+  }
   function login(msg) {
     $('#out').hidden = true;
     $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h3>دخول المدرب</h3><p class="mut">نفس الرقم السري للوحة المدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><p><button class="btn g" id="go">دخول</button></p><p class="mut" id="msg">${esc(msg || '')}</p></div>`;
@@ -89,11 +99,11 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
       ${rows.map(u => { const c = C[u.id] || {}, s = status(u), e = EDIT[u.id] || {}, p = u.progress || {}, ex = (p.scores && p.scores.examBest) || 0;
         return `<tr><td><span class="dot ${live(u) ? 'on' : ''}"></span><b>${esc(u.name)}</b><div class="mut">${esc(u.group || '')}${u.org ? ' · ' + esc(u.org) : ''} · ${esc(u.phone || '')} · آخر ظهور ${ago(u.lastSeen)}</div></td>
           <td><b>${p.overall || 0}%</b> <span class="mut">· اختبار ${ex ? ex + '%' : '—'}</span><div class="pg"><i style="width:${p.overall || 0}%"></i></div></td>
-          <td><input dir="ltr" data-id="${u.id}" data-f="nameEn" value="${esc(e.nameEn != null ? e.nameEn : (c.nameEn || ''))}" placeholder="English name"></td>
-          <td><input dir="rtl" data-id="${u.id}" data-f="nameAr" value="${esc(e.nameAr != null ? e.nameAr : (c.nameAr || (/[؀-ۿ]/.test(u.name || '') ? u.name : '')))}" placeholder="الاسم بالعربية"></td>
+          <td><input dir="ltr" ${/approved|revoked/.test(s) ? 'readonly' : ''} data-id="${u.id}" data-f="nameEn" value="${esc(e.nameEn != null ? e.nameEn : (c.nameEn || ''))}" placeholder="English name"></td>
+          <td><input dir="rtl" ${/approved|revoked/.test(s) ? 'readonly' : ''} data-id="${u.id}" data-f="nameAr" value="${esc(e.nameAr != null ? e.nameAr : (c.nameAr || (/[؀-ۿ]/.test(u.name || '') ? u.name : '')))}" placeholder="الاسم بالعربية"></td>
           <td><span class="st ${s}">${ST[s]}</span>${c.requestedAt ? `<div class="mut">طلب ${ago(c.requestedAt)}</div>` : ''}${c.note ? `<div class="mut">📝 ${esc(c.note)}</div>` : ''}</td>
           <td dir="ltr" style="text-align:right">${c.no ? `<b>${esc(c.no)}</b><div class="mut">${esc(c.verify || '')}</div>` : '—'}</td>
-          <td><div class="acts"><button class="btn g" data-a="approve" data-id="${u.id}">${s === 'approved' ? '💾 حفظ وإعادة الاعتماد' : '✅ اعتماد'}</button>${s === 'pending' ? `<button class="btn r" data-a="reject" data-id="${u.id}">↩️ إعادة للتعديل</button>` : ''}${s === 'approved' ? `<button class="btn r" data-a="revoke" data-id="${u.id}">⛔ إلغاء</button>` : ''}<button class="btn o" data-a="ed" data-id="${u.id}">✏️ بنود الإفادة${c.rows ? ' ✓' : ''}</button><button class="btn o" data-a="pv" data-id="${u.id}">👁️ معاينة</button></div></td></tr>`; }).join('') || '<tr><td colspan="7" class="mut">لا يوجد متدربون في هذا التصنيف.</td></tr>'}</table></div></div>
+          <td><div class="acts">${s === 'approved' ? `<span class="mut">🔒 معتمدة ومقفلة</span><button class="btn r" data-a="revoke" data-id="${u.id}">⛔ إلغاء</button>` : s === 'revoked' ? '' : `<button class="btn g" data-a="approve" data-id="${u.id}">✅ اعتماد</button>${s === 'pending' ? `<button class="btn r" data-a="reject" data-id="${u.id}">↩️ إعادة للتعديل</button>` : ''}<button class="btn o" data-a="ed" data-id="${u.id}">✏️ بنود الإفادة${c.rows ? ' ✓' : ''}</button>`}<button class="btn o" data-a="pv" data-id="${u.id}">👁️ معاينة</button></div></td></tr>`; }).join('') || '<tr><td colspan="7" class="mut">لا يوجد متدربون في هذا التصنيف.</td></tr>'}</table></div></div>
       <details class="card"><summary><b>⚙️ بيانات الشهادة والإفادة (تُطبَّق على كل الوثائق)</b></summary><div class="set" style="margin-top:12px">${[['program', 'اسم البرنامج (EN)'], ['programAr', 'اسم البرنامج (AR)'], ['kind', 'نوع البرنامج (EN)'], ['kindAr', 'نوع البرنامج (AR)'], ['approvalNo', 'رقم اعتماد المؤسسة'], ['hours', 'الساعات'], ['dates', 'الفترة (EN)'], ['datesAr', 'الفترة (AR)'], ['signName', 'الموقّع (EN)'], ['signTitle', 'المنصب (EN)'], ['signNameAr', 'الموقّع (AR)'], ['signTitleAr', 'المنصب (AR)'], ['trainer', 'المدرب (EN)'], ['trainerAr', 'المدرب (AR)'], ['prefix', 'بادئة رقم الشهادة']].map(([k, t]) => `<label>${t}<input data-cfg="${k}" value="${esc(CFG[k] || '')}"></label>`).join('')}</div><div class="bar" style="margin-top:10px"><button class="btn g" id="saveCfg">💾 حفظ البيانات</button><span class="mut">تُستخدم في الوثائق الجديدة وفي صفحة التحقق. الشهادات الصادرة تبقى بأرقامها.</span></div></details>`;
     $$('[data-f2]').forEach(b => b.onclick = () => { F = b.dataset.f2; render(); });
     const q = $('#q'); q.oninput = () => { Q = q.value; clearTimeout(q._t); q._t = setTimeout(() => { render(); const z = $('#q'); z.focus(); z.setSelectionRange(Q.length, Q.length); }, 300); };
@@ -111,20 +121,21 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
     let note = ''; if (a === 'reject') { note = prompt('سبب الإعادة (يظهر للمتدرب):', 'يرجى تصحيح كتابة الاسم'); if (note === null) return; }
     if (a === 'revoke' && !confirm('إلغاء شهادة ' + u.name + '؟ ستظهر صفحة التحقق أنها ملغاة.')) return;
     b.disabled = true;
-    const body = { action: 'cert_decide', id, decision: a, note }; if (a === 'approve') Object.assign(body, nm);
-    const r = await api('', body); b.disabled = false;
+    const body = { action: 'cert_decide', id, decision: a, expectedRevision: REV(id) }; if (a === 'reject' || a === 'revoke') body.note = note || ''; if (a === 'approve') Object.assign(body, nm);
+    const r = await decide(body); b.disabled = false;
     if (!r.ok) return toast('⚠️ ' + (ERR[r.j.error] || r.j.error || 'تعذّر التنفيذ'));
     C[id] = r.j.cert; delete EDIT[id]; toast({ approve: '✅ اعتُمدت شهادة ' + u.name + ' — رقم ' + r.j.cert.no, reject: '↩️ أُعيد الطلب للمتدرب', revoke: '⛔ أُلغيت الشهادة' }[a]); render();
   }
   async function bulk() {
     const ps = U.filter(u => status(u) === 'pending'); if (!confirm('اعتماد ' + ps.length + ' طلبًا بالأسماء المكتوبة؟')) return;
-    let ok = 0; for (const u of ps) { const r = await api('', Object.assign({ action: 'cert_decide', id: u.id, decision: 'approve' }, names(u.id))); if (r.ok) { C[u.id] = r.j.cert; ok++; } }
+    let ok = 0; for (const u of ps) { const r = await decide(Object.assign({ action: 'cert_decide', id: u.id, decision: 'approve' }, names(u.id))); if (r.ok) { C[u.id] = r.j.cert; ok++; } }
     toast('✅ اعتُمد ' + ok + ' من ' + ps.length); render();
   }
-  async function saveCfg() { const cert = Object.assign({}, CFG); $$('[data-cfg]').forEach(i => cert[i.dataset.cfg] = i.value.trim()); const r = await api('', { config: { cert } }); if (r.ok) { CFG = cert; toast('💾 حُفظت بيانات الشهادة'); } else toast('⚠️ تعذّر الحفظ'); }
+  async function saveCfg() { const cert = Object.assign({}, CFG); $$('[data-cfg]').forEach(i => cert[i.dataset.cfg] = i.value.trim()); cert.prefix = (cert.prefix || '').toUpperCase();
+    if (!/^\d{1,4}(\.\d{1,2})?$/.test(cert.hours || '') || +cert.hours <= 0) return toast('⚠️ الساعات يجب أن تكون رقمًا فقط (مثل 30)'); if (!/^[A-Z0-9][A-Z0-9-]{1,19}$/.test(cert.prefix)) return toast('⚠️ بادئة الرقم: أحرف إنجليزية كبيرة وأرقام وشرطة فقط (مثل TF-2026)'); if (['program', 'programAr', 'kind', 'kindAr', 'dates', 'datesAr'].some(k => !cert[k])) return toast('⚠️ أكمل اسم البرنامج ونوعه والفترة باللغتين'); if (cert.site && !/^https:\/\//i.test(cert.site)) return toast('⚠️ رابط الموقع يجب أن يبدأ بـ https://'); const r = await api('', { config: { cert } }); if (r.ok) { CFG = cert; toast('💾 حُفظت بيانات الشهادة'); } else toast('⚠️ تعذّر الحفظ'); }
   async function pv(u, nm) {
     const c = C[u.id] || {}, ok = c.status === 'approved';
-    const d = { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG), rows: c.rows, progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } };
+    const d = { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG, (ok && c.config) || {}), rows: c.rows, progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } };
     $('#pvT').textContent = (ok ? '✅ ' : '👁️ معاينة (غير صادرة) — ') + (d.nameEn || u.name) + (ok ? ' · ' + c.no : '');
     $('#pv1').replaceChildren(await window.TFCert.preview('cert', d)); $('#pv2').replaceChildren(await window.TFCert.preview('attest', d)); $('#pv').classList.add('on');
     $('#pvC').onclick = () => window.TFCert.pdf('cert', d); $('#pvA').onclick = () => window.TFCert.pdf('attest', d);
@@ -132,7 +143,7 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
   /* ───── محرر بنود الإفادة ───── */
   let ED = null;
   const docOf = (u, nm, rows) => { const c = C[u.id] || {}, ok = c.status === 'approved'; nm = nm || names(u.id);
-    return { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG), rows,
+    return { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG, (ok && c.config) || {}), rows,
       progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } }; };
   const defRows = u => window.TFCert.defaultRows(docOf(u, null, null)).map(r => ({ ar: r[0], en: r[1], v: String(r[2]) }));
   function edDraw() {
@@ -149,8 +160,8 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
   }
   async function edSave(approve) {
     const u = ED.u, rows = ED.rows.map(r => ({ ar: r.ar.trim(), en: r.en.trim(), v: r.v.trim() })).filter(r => r.ar || r.en || r.v);
-    const body = Object.assign({ action: 'cert_decide', id: u.id, decision: approve ? 'approve' : 'edit', rows }, approve ? names(u.id) : {});
-    $('#edMsg').textContent = 'جارٍ الحفظ…'; const r = await api('', body);
+    const body = Object.assign({ action: 'cert_decide', id: u.id, decision: approve ? 'approve' : 'edit', rows, expectedRevision: REV(u.id) }, approve ? names(u.id) : {});
+    $('#edMsg').textContent = 'جارٍ الحفظ…'; const r = await decide(body);
     if (!r.ok) { $('#edMsg').textContent = '⚠️ ' + (ERR[r.j.error] || r.j.error || 'تعذّر الحفظ'); return; }
     C[u.id] = r.j.cert; toast(approve ? '✅ حُفظت البنود واعتُمدت إفادة ' + u.name + ' — ' + r.j.cert.no : '💾 حُفظت بنود إفادة ' + u.name); $('#ed').classList.remove('on'); render();
   }

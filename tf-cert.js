@@ -190,7 +190,7 @@
     try { const r = await api('/api/cert?id=' + encodeURIComponent(u.id) + '&token=' + encodeURIComponent(u.token)); if (r.ok) { STATE = Object.assign(STATE, r.j); fab(); return r.j; } } catch (e) {}
     return null;
   }
-  const docData = () => { const c = STATE.cert || {}, cfg = Object.assign({}, DEF, STATE.config || {}); return { nameEn: c.nameEn, nameAr: c.nameAr, no: c.status === 'approved' ? c.no : '', verify: c.status === 'approved' ? c.verify : '', issuedAt: c.issuedAt, cfg, progress: c.progress || STATE.progress || {}, rows: c.rows }; };
+  const docData = () => { const c = STATE.cert || {}, cfg = Object.assign({}, DEF, STATE.config || {}, c.config || {}); return { nameEn: c.nameEn, nameAr: c.nameAr, no: c.status === 'approved' ? c.no : '', verify: c.status === 'approved' ? c.verify : '', issuedAt: c.issuedAt, cfg, progress: c.progress || STATE.progress || {}, rows: c.rows }; };
   function fab() {
     if (page === 'trainer' || page === 'certificates' || page === 'studio') return;
     let b = document.querySelector('.tfcz-fab'); if (!b) { b = document.createElement('button'); b.className = 'tfcz-fab'; b.type = 'button'; b.onclick = () => open(); document.body.appendChild(b); }
@@ -212,7 +212,7 @@
       pending: L('⏳ طلبك بانتظار موافقة المدرب. ستصلك الشهادة والإفادة هنا فور الاعتماد.', '⏳ Your request is awaiting the trainer\'s approval. Your documents will appear here once approved.'),
       approved: L('✅ اعتمد المدرب شهادتك — يمكنك تنزيل الشهادة والإفادة الرسمية بصيغة PDF.', '✅ Approved by your trainer — download your certificate and official attestation as PDF.'),
       rejected: L('⚠️ أعاد المدرب الطلب للتعديل', '⚠️ The trainer returned your request for correction') + (c && c.note ? ': ' + esc(c.note) : ''), revoked: L('⛔ أُلغيت هذه الشهادة. تواصل مع المدرب.', '⛔ This certificate has been revoked. Please contact your trainer.') }[s];
-    const form = s === 'revoked' ? '' : `<div class="fm"><label>${L('الاسم بالإنجليزية كما يظهر في الشهادة', 'Name in English (as on the certificate)')}<input id="tfczEn" dir="ltr" maxlength="80" value="${esc(c && c.nameEn || '')}" placeholder="e.g. Sarah M. Al-Otaibi"><small>${L('أحرف إنجليزية فقط', 'Latin letters only')}</small></label>
+    const form = s === 'revoked' || s === 'approved' ? '' : `<div class="fm"><label>${L('الاسم بالإنجليزية كما يظهر في الشهادة', 'Name in English (as on the certificate)')}<input id="tfczEn" dir="ltr" maxlength="80" value="${esc(c && c.nameEn || '')}" placeholder="e.g. Sarah M. Al-Otaibi"><small>${L('أحرف إنجليزية فقط', 'Latin letters only')}</small></label>
       <label>${L('الاسم بالعربية كما يظهر في الإفادة', 'Name in Arabic (as on the attestation)')}<input id="tfczAr" dir="rtl" maxlength="80" value="${esc(c && c.nameAr || (/[؀-ۿ]/.test(u.name || '') ? u.name : ''))}" placeholder="سارة محمد العتيبي"><small>${L('أحرف عربية فقط', 'Arabic letters only')}</small></label></div>
       <div class="row"><button class="btn ${s === 'approved' ? 'o' : 'g'}" id="tfczSend">${s === 'approved' ? L('طلب تعديل الاسم (يتطلب موافقة جديدة)', 'Request a name change (needs re-approval)') : s === 'pending' ? L('تحديث الطلب', 'Update request') : L('إرسال للمدرب للموافقة', 'Submit for trainer approval')}</button><span class="msg" id="tfczMsg"></span></div>`;
     const dl = s === 'approved' ? `<div class="row"><button class="btn g" id="tfczC">⬇️ ${L('تنزيل الشهادة PDF', 'Download certificate (PDF)')}</button><button class="btn g" id="tfczA">⬇️ ${L('تنزيل الإفادة الرسمية PDF', 'Download attestation (PDF)')}</button><a class="btn o" href="${esc(vurl(d))}" target="_blank" rel="noopener">🔗 ${L('صفحة التحقق', 'Verification page')}</a></div>` : '';
@@ -227,7 +227,7 @@
       if (!/^[؀-ۿݐ-ݿ][؀-ۿݐ-ݿ .\-]{2,79}$/.test(nameAr)) { m.textContent = L('اكتب الاسم العربي بأحرف عربية.', 'Enter the Arabic name in Arabic letters.'); return; }
       sb.disabled = true; m.textContent = L('جارٍ الإرسال…', 'Sending…');
       const r = await api('/api/cert', { method: 'POST', body: JSON.stringify({ id: u.id, token: u.token, nameEn, nameAr }) }).catch(() => ({ ok: false, j: {} }));
-      sb.disabled = false; if (!r.ok) { m.textContent = L('تعذّر الإرسال: ', 'Could not send: ') + (r.j.error || 'offline'); return; }
+      sb.disabled = false; if (!r.ok) { const E = { cert_locked: L('الشهادة معتمدة ولا يمكن تعديلها — تواصل مع المدرب', 'Certificate is approved and locked — contact your trainer'), cert_revoked: L('الشهادة ملغاة', 'Certificate revoked'), rate_limited: L('محاولات كثيرة — انتظر قليلًا', 'Too many attempts — please wait'), not_found: L('الخادم غير محدَّث بعد — أبلغ المدرب', 'Server not updated yet — tell your trainer') }; m.textContent = L('تعذّر الإرسال: ', 'Could not send: ') + (E[r.j.error] || r.j.error || 'offline'); return; }
       STATE.cert = r.j.cert; fab(); open(); poll();
     };
     const bc = document.getElementById('tfczC'), ba = document.getElementById('tfczA');
