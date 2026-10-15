@@ -544,6 +544,7 @@ async function certTrainer(b){
   if(b.nameEn!=null){const v=certName(b.nameEn,CERT_EN);if(!v)return{status:400,body:{error:'bad_name_en'}};c.nameEn=v;}
   if(b.nameAr!=null){const v=certName(b.nameAr,CERT_AR);if(!v)return{status:400,body:{error:'bad_name_ar'}};c.nameAr=v;}
   if(!c.nameAr&&user.name&&CERT_AR.test(user.name))c.nameAr=user.name;
+  if(b.rows!==undefined){if(b.rows===null)delete c.rows;else if(Array.isArray(b.rows)&&b.rows.length<=12){const rows=b.rows.map(r=>({ar:clip(r&&r.ar,90),en:clip(r&&r.en,90),v:clip(r&&r.v,90)})).filter(r=>r.ar||r.en||r.v);if(rows.length)c.rows=rows;else delete c.rows;}else return{status:400,body:{error:'bad_rows'}};}
   const d=b.decision;
   if(d==='approve'){if(!c.nameEn||!c.nameAr)return{status:400,body:{error:'names_required'}};c.no=await certIssueNo(c);c.verify=certCode(c.no);c.status='approved';c.issuedAt=c.issuedAt||Date.now();c.approvedAt=Date.now();Object.assign(c,{progress:await certProgress(id),group:user.group||'',org:user.org||'',phone4:String(user.phone||'').slice(-4)});}
   else if(d==='reject'){c.status='rejected';c.note=clip(b.note,300);}

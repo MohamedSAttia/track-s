@@ -107,6 +107,11 @@
     return cv;
   }
 
+  /* بنود جدول الإفادة الافتراضية (يمكن للمدرب تعديلها أو إضافة بنود لكل متدرب) */
+  function defaultRows(d) {
+    const cf = d.cfg, p = d.progress || {}, hrs = p.timeSec ? (p.timeSec / 3600).toFixed(1) : '—';
+    return [['نسبة إنجاز مسار الدورة', 'Course track completion', (p.overall || 0) + '%'], ['أفضل نتيجة في الاختبار التجريبي', 'Best mock exam score', p.examBest ? p.examBest + '%' : '—'], ['الساعات التدريبية المعتمدة', 'Accredited training hours', cf.hours], ['ساعات النشاط على المنصة', 'Active hours on the platform', hrs], ['الفترة', 'Period', cf.dates], ['المدرب', 'Trainer', cf.trainer + ' · ' + cf.trainerAr]];
+  }
   /* ───────── الإفادة الرسمية (ثنائية اللغة — A4 عمودي) ───────── */
   function drawAttest(cv, d, K) {
     const W = 794, H = 1123, c = cv.getContext('2d'); cv.width = W * K; cv.height = H * K; c.setTransform(K, 0, 0, K, 0, 0);
@@ -130,11 +135,11 @@
     const en = `This is to certify that ${d.nameEn || '—'} has successfully completed the ${cf.program} ${cf.kind}, approved by the Technical and Vocational Training Corporation (TVTC) under No. ${cf.approvalNo}, comprising ${cf.hours} training hours during ${cf.dates}, including the practical applications on the Track Ford Governance, Risk and Compliance platform in line with international standards and recognized best practices in governance, risk and compliance, as reviewed and approved by the course trainer.`;
     c.font = '15px Tinos'; c.direction = 'ltr'; wrap(c, en, W - 140).forEach(l => { y += 22; txt(c, l, 70, y, '15px Tinos', '#1B2436', 'left'); });
     // results table
-    y += 24; const p = d.progress || {}, hrs = p.timeSec ? (p.timeSec / 3600).toFixed(1) : '—';
-    const rows = [['نسبة إنجاز مسار الدورة', 'Course track completion', (p.overall || 0) + '%'], ['أفضل نتيجة في الاختبار التجريبي', 'Best mock exam score', p.examBest ? p.examBest + '%' : '—'], ['الساعات التدريبية المعتمدة', 'Accredited training hours', cf.hours], ['ساعات النشاط على المنصة', 'Active hours on the platform', hrs], ['الفترة', 'Period', cf.dates], ['المدرب', 'Trainer', cf.trainer + ' · ' + cf.trainerAr]];
-    const rh = 28, tx = 60, tw = W - 120;
+    y += 24;
+    const rows = (Array.isArray(d.rows) && d.rows.length ? d.rows.map(r => [r.ar || '', r.en || '', r.v || '']) : defaultRows(d)).slice(0, 12);
+    const rh = rows.length > 9 ? 22 : rows.length > 7 ? 25 : 28, fz = rows.length > 9 ? 11.5 : 13, tx = 60, tw = W - 120, by = Math.round(rh * .68);
     rows.forEach((r, i) => { const yy = y + i * rh; c.fillStyle = i % 2 ? '#FFFFFF' : '#F6EEDC'; c.fillRect(tx, yy, tw, rh); c.strokeStyle = '#E7DCC6'; c.lineWidth = 1; c.strokeRect(tx, yy, tw, rh);
-      txt(c, r[0], tx + tw - 12, yy + 19, '500 13px Rubik', NV, 'right'); txt(c, r[1], tx + 12, yy + 19, '13px Tinos', '#5B6476', 'left'); txt(c, String(r[2]), tx + tw / 2, yy + 19, 'bold 13px Tinos', INK, 'center'); });
+      txt(c, r[0], tx + tw - 12, yy + by, fit(c, r[0], '500 #px Rubik', fz, tw * .36), NV, 'right'); txt(c, r[1], tx + 12, yy + by, fit(c, r[1], '#px Tinos', fz, tw * .36), '#5B6476', 'left'); txt(c, String(r[2]), tx + tw / 2, yy + by, fit(c, String(r[2]), 'bold #px Tinos', fz, tw * .26), INK, 'center'); });
     y += rows.length * rh + 26;
     txt(c, 'أُعطيت هذه الإفادة بناءً على طلبه/ا دون أدنى مسؤولية على الشركة.', W / 2, y, '13px Rubik', '#5B6476'); y += 18;
     txt(c, 'This attestation is issued upon the holder\'s request without any liability on the company.', W / 2, y, 'italic 13px Tinos', '#5B6476');
@@ -185,7 +190,7 @@
     try { const r = await api('/api/cert?id=' + encodeURIComponent(u.id) + '&token=' + encodeURIComponent(u.token)); if (r.ok) { STATE = Object.assign(STATE, r.j); fab(); return r.j; } } catch (e) {}
     return null;
   }
-  const docData = () => { const c = STATE.cert || {}, cfg = Object.assign({}, DEF, STATE.config || {}); return { nameEn: c.nameEn, nameAr: c.nameAr, no: c.status === 'approved' ? c.no : '', verify: c.status === 'approved' ? c.verify : '', issuedAt: c.issuedAt, cfg, progress: c.progress || STATE.progress || {} }; };
+  const docData = () => { const c = STATE.cert || {}, cfg = Object.assign({}, DEF, STATE.config || {}); return { nameEn: c.nameEn, nameAr: c.nameAr, no: c.status === 'approved' ? c.no : '', verify: c.status === 'approved' ? c.verify : '', issuedAt: c.issuedAt, cfg, progress: c.progress || STATE.progress || {}, rows: c.rows }; };
   function fab() {
     if (page === 'trainer' || page === 'certificates' || page === 'studio') return;
     let b = document.querySelector('.tfcz-fab'); if (!b) { b = document.createElement('button'); b.className = 'tfcz-fab'; b.type = 'button'; b.onclick = () => open(); document.body.appendChild(b); }
@@ -241,6 +246,6 @@
     const u = user(); fab();
     if (u && !u.local) refresh().then(j => { const c = j && j.cert; if (c && c.status === 'approved') announce(c); else poll(); });
   }
-  window.TFCert = { libs, drawCert, drawAttest, pdf, preview, open, refresh, DEF, vurl };
+  window.TFCert = { libs, drawCert, drawAttest, pdf, preview, open, refresh, DEF, vurl, defaultRows };
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', boot) : boot();
 })();

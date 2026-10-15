@@ -30,7 +30,11 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
 #pv .two{display:grid;grid-template-columns:1.42fr 1fr;gap:12px}#pv .two>div{box-shadow:0 6px 20px rgba(0,0,0,.2);border-radius:8px;overflow:hidden;background:#fff}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;border:1.5px solid var(--gold);border-radius:12px;padding:10px 16px;opacity:0;transition:.3s;z-index:60}#toast.on{opacity:1}
 .foot{text-align:center;color:var(--mut);font-size:12.5px;padding:18px}.foot b{color:var(--gold)}
-@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.set{grid-template-columns:1fr 1fr}#pv .two{grid-template-columns:1fr}}
+#ed{position:fixed;inset:0;background:rgba(6,18,43,.75);z-index:55;display:none;align-items:center;justify-content:center;padding:14px}#ed.on{display:flex}
+#ed .bx{background:var(--cream);border-radius:16px;max-width:1250px;width:100%;max-height:94vh;overflow:auto;padding:16px;border:2px solid var(--gold);display:grid;grid-template-columns:1.15fr 1fr;gap:14px}
+#ed h3{margin:0 0 6px;color:var(--navy)}#ed table td{padding:4px}#ed td input{min-width:0;width:100%}#ed .pvw{box-shadow:0 6px 20px rgba(0,0,0,.2);border-radius:8px;overflow:hidden;background:#fff;align-self:start;position:sticky;top:0}
+#ed .mv{border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;padding:2px 7px}
+@media(max-width:900px){#ed .bx{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}.set{grid-template-columns:1fr 1fr}#pv .two{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -38,6 +42,11 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
 <nav><a href="trainer.html">لوحة المدرب</a><a href="index.html">البوابة</a><button id="out" hidden>خروج</button></nav></div></header>
 <main id="main"></main>
 <div id="pv"><div class="bx"><div class="bar"><b id="pvT" style="flex:1"></b><button class="btn g" id="pvC">⬇️ الشهادة PDF</button><button class="btn g" id="pvA">⬇️ الإفادة PDF</button><button class="btn o" id="pvX">✕ إغلاق</button></div><div class="two"><div id="pv1"></div><div id="pv2"></div></div></div></div>
+<div id="ed"><div class="bx"><div><h3 id="edT">✏️ بنود الإفادة</h3><p class="mut">عدّل النسب والقيم أو أي بند، أضف بنودًا جديدة أو احذفها، ورتّبها بالأسهم. تظهر التعديلات فورًا في المعاينة، وتُحفظ لهذا المتدرب على الخادم.</p>
+<div class="tbl" style="max-height:52vh"><table><tr><th>البند بالعربية</th><th>Item (English)</th><th>القيمة / النسبة</th><th></th></tr><tbody id="edRows"></tbody></table></div>
+<div class="bar" style="margin-top:10px"><button class="btn o" id="edAdd">➕ إضافة بند</button><button class="btn o" id="edDef">↺ البنود الافتراضية (من التقدّم الفعلي)</button></div>
+<div class="bar"><button class="btn g" id="edSave">💾 حفظ</button><button class="btn g" id="edApprove">💾 حفظ واعتماد</button><button class="btn o" id="edX">✕ إغلاق</button><span class="mut" id="edMsg"></span></div></div>
+<div class="pvw" id="edPv"></div></div></div>
 <div id="toast"></div>
 <div class="foot">Track Ford GRC · <b>تصميم وبرمجة وإعداد: د. محمد عطية</b> · الشهادات تُتحقق مباشرة من سجل تراكفورد على الخادم</div>
 <script src="tf-config.js"></script>
@@ -84,7 +93,7 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
           <td><input dir="rtl" data-id="${u.id}" data-f="nameAr" value="${esc(e.nameAr != null ? e.nameAr : (c.nameAr || (/[؀-ۿ]/.test(u.name || '') ? u.name : '')))}" placeholder="الاسم بالعربية"></td>
           <td><span class="st ${s}">${ST[s]}</span>${c.requestedAt ? `<div class="mut">طلب ${ago(c.requestedAt)}</div>` : ''}${c.note ? `<div class="mut">📝 ${esc(c.note)}</div>` : ''}</td>
           <td dir="ltr" style="text-align:right">${c.no ? `<b>${esc(c.no)}</b><div class="mut">${esc(c.verify || '')}</div>` : '—'}</td>
-          <td><div class="acts"><button class="btn g" data-a="approve" data-id="${u.id}">${s === 'approved' ? '💾 حفظ وإعادة الاعتماد' : '✅ اعتماد'}</button>${s === 'pending' ? `<button class="btn r" data-a="reject" data-id="${u.id}">↩️ إعادة للتعديل</button>` : ''}${s === 'approved' ? `<button class="btn r" data-a="revoke" data-id="${u.id}">⛔ إلغاء</button>` : ''}<button class="btn o" data-a="pv" data-id="${u.id}">👁️ معاينة</button></div></td></tr>`; }).join('') || '<tr><td colspan="7" class="mut">لا يوجد متدربون في هذا التصنيف.</td></tr>'}</table></div></div>
+          <td><div class="acts"><button class="btn g" data-a="approve" data-id="${u.id}">${s === 'approved' ? '💾 حفظ وإعادة الاعتماد' : '✅ اعتماد'}</button>${s === 'pending' ? `<button class="btn r" data-a="reject" data-id="${u.id}">↩️ إعادة للتعديل</button>` : ''}${s === 'approved' ? `<button class="btn r" data-a="revoke" data-id="${u.id}">⛔ إلغاء</button>` : ''}<button class="btn o" data-a="ed" data-id="${u.id}">✏️ بنود الإفادة${c.rows ? ' ✓' : ''}</button><button class="btn o" data-a="pv" data-id="${u.id}">👁️ معاينة</button></div></td></tr>`; }).join('') || '<tr><td colspan="7" class="mut">لا يوجد متدربون في هذا التصنيف.</td></tr>'}</table></div></div>
       <details class="card"><summary><b>⚙️ بيانات الشهادة والإفادة (تُطبَّق على كل الوثائق)</b></summary><div class="set" style="margin-top:12px">${[['program', 'اسم البرنامج (EN)'], ['programAr', 'اسم البرنامج (AR)'], ['kind', 'نوع البرنامج (EN)'], ['kindAr', 'نوع البرنامج (AR)'], ['approvalNo', 'رقم اعتماد المؤسسة'], ['hours', 'الساعات'], ['dates', 'الفترة (EN)'], ['datesAr', 'الفترة (AR)'], ['signName', 'الموقّع (EN)'], ['signTitle', 'المنصب (EN)'], ['signNameAr', 'الموقّع (AR)'], ['signTitleAr', 'المنصب (AR)'], ['trainer', 'المدرب (EN)'], ['trainerAr', 'المدرب (AR)'], ['prefix', 'بادئة رقم الشهادة']].map(([k, t]) => `<label>${t}<input data-cfg="${k}" value="${esc(CFG[k] || '')}"></label>`).join('')}</div><div class="bar" style="margin-top:10px"><button class="btn g" id="saveCfg">💾 حفظ البيانات</button><span class="mut">تُستخدم في الوثائق الجديدة وفي صفحة التحقق. الشهادات الصادرة تبقى بأرقامها.</span></div></details>`;
     $$('[data-f2]').forEach(b => b.onclick = () => { F = b.dataset.f2; render(); });
     const q = $('#q'); q.oninput = () => { Q = q.value; clearTimeout(q._t); q._t = setTimeout(() => { render(); const z = $('#q'); z.focus(); z.setSelectionRange(Q.length, Q.length); }, 300); };
@@ -98,6 +107,7 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
   async function act(a, id, b) {
     const u = U.find(x => x.id === id), nm = names(id);
     if (a === 'pv') return pv(u, nm);
+    if (a === 'ed') return editAtt(u);
     let note = ''; if (a === 'reject') { note = prompt('سبب الإعادة (يظهر للمتدرب):', 'يرجى تصحيح كتابة الاسم'); if (note === null) return; }
     if (a === 'revoke' && !confirm('إلغاء شهادة ' + u.name + '؟ ستظهر صفحة التحقق أنها ملغاة.')) return;
     b.disabled = true;
@@ -114,11 +124,39 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
   async function saveCfg() { const cert = Object.assign({}, CFG); $$('[data-cfg]').forEach(i => cert[i.dataset.cfg] = i.value.trim()); const r = await api('', { config: { cert } }); if (r.ok) { CFG = cert; toast('💾 حُفظت بيانات الشهادة'); } else toast('⚠️ تعذّر الحفظ'); }
   async function pv(u, nm) {
     const c = C[u.id] || {}, ok = c.status === 'approved';
-    const d = { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG), progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } };
+    const d = { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG), rows: c.rows, progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } };
     $('#pvT').textContent = (ok ? '✅ ' : '👁️ معاينة (غير صادرة) — ') + (d.nameEn || u.name) + (ok ? ' · ' + c.no : '');
     $('#pv1').replaceChildren(await window.TFCert.preview('cert', d)); $('#pv2').replaceChildren(await window.TFCert.preview('attest', d)); $('#pv').classList.add('on');
     $('#pvC').onclick = () => window.TFCert.pdf('cert', d); $('#pvA').onclick = () => window.TFCert.pdf('attest', d);
   }
+  /* ───── محرر بنود الإفادة ───── */
+  let ED = null;
+  const docOf = (u, nm, rows) => { const c = C[u.id] || {}, ok = c.status === 'approved'; nm = nm || names(u.id);
+    return { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG), rows,
+      progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } }; };
+  const defRows = u => window.TFCert.defaultRows(docOf(u, null, null)).map(r => ({ ar: r[0], en: r[1], v: String(r[2]) }));
+  function edDraw() {
+    $('#edRows').innerHTML = ED.rows.map((r, i) => `<tr><td><input dir="rtl" data-i="${i}" data-k="ar" value="${esc(r.ar)}"></td><td><input dir="ltr" data-i="${i}" data-k="en" value="${esc(r.en)}"></td><td><input dir="auto" data-i="${i}" data-k="v" value="${esc(r.v)}" style="font-weight:700"></td><td style="white-space:nowrap"><button class="mv" data-m="up" data-i="${i}" title="أعلى">▲</button><button class="mv" data-m="dn" data-i="${i}" title="أسفل">▼</button><button class="mv" data-m="del" data-i="${i}" title="حذف" style="color:var(--warn)">✕</button></td></tr>`).join('');
+    $$('#edRows input').forEach(x => x.oninput = () => { ED.rows[+x.dataset.i][x.dataset.k] = x.value; clearTimeout(ED.t); ED.t = setTimeout(edPrev, 300); });
+    $$('#edRows .mv').forEach(b => b.onclick = () => { const i = +b.dataset.i, R = ED.rows; if (b.dataset.m === 'del') R.splice(i, 1); else { const j = b.dataset.m === 'up' ? i - 1 : i + 1; if (j < 0 || j >= R.length) return; [R[i], R[j]] = [R[j], R[i]]; } edDraw(); edPrev(); });
+    $('#edAdd').disabled = ED.rows.length >= 12;
+  }
+  async function edPrev() { $('#edPv').replaceChildren(await window.TFCert.preview('attest', docOf(ED.u, null, ED.rows.filter(r => r.ar || r.en || r.v)))); }
+  function editAtt(u) {
+    const c = C[u.id] || {}; ED = { u, rows: (c.rows && c.rows.length ? c.rows : defRows(u)).map(r => Object.assign({}, r)) };
+    $('#edT').textContent = '✏️ بنود الإفادة — ' + u.name + (c.status === 'approved' ? ' · ' + c.no : ''); $('#edMsg').textContent = '';
+    edDraw(); edPrev(); $('#ed').classList.add('on');
+  }
+  async function edSave(approve) {
+    const u = ED.u, rows = ED.rows.map(r => ({ ar: r.ar.trim(), en: r.en.trim(), v: r.v.trim() })).filter(r => r.ar || r.en || r.v);
+    const body = Object.assign({ action: 'cert_decide', id: u.id, decision: approve ? 'approve' : 'edit', rows }, approve ? names(u.id) : {});
+    $('#edMsg').textContent = 'جارٍ الحفظ…'; const r = await api('', body);
+    if (!r.ok) { $('#edMsg').textContent = '⚠️ ' + (ERR[r.j.error] || r.j.error || 'تعذّر الحفظ'); return; }
+    C[u.id] = r.j.cert; toast(approve ? '✅ حُفظت البنود واعتُمدت إفادة ' + u.name + ' — ' + r.j.cert.no : '💾 حُفظت بنود إفادة ' + u.name); $('#ed').classList.remove('on'); render();
+  }
+  $('#edAdd').onclick = () => { ED.rows.push({ ar: '', en: '', v: '' }); edDraw(); const i = $$('#edRows input[data-k="ar"]').pop(); if (i) i.focus(); };
+  $('#edDef').onclick = () => { if (!confirm('استبدال البنود الحالية بالبنود الافتراضية المحسوبة من تقدّم المتدرب؟')) return; ED.rows = defRows(ED.u); edDraw(); edPrev(); };
+  $('#edSave').onclick = () => edSave(false); $('#edApprove').onclick = () => edSave(true); $('#edX').onclick = () => $('#ed').classList.remove('on');
   $('#pvX').onclick = () => $('#pv').classList.remove('on');
   $('#out').onclick = () => { sessionStorage.removeItem('tf_trainer_pin'); PIN = ''; clearInterval(timer); login(); };
   function start() { $('#out').hidden = false; render(); clearInterval(timer); timer = setInterval(async () => { if (document.hidden) return; if (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f) return; if (await load()) render(); }, 20000); }
