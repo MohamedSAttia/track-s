@@ -43,9 +43,10 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
 <main id="main"></main>
 <div id="pv"><div class="bx"><div class="bar"><b id="pvT" style="flex:1"></b><button class="btn g" id="pvC">⬇️ الشهادة PDF</button><button class="btn g" id="pvA">⬇️ الإفادة PDF</button><button class="btn o" id="pvX">✕ إغلاق</button></div><div class="two"><div id="pv1"></div><div id="pv2"></div></div></div></div>
 <div id="ed"><div class="bx"><div><h3 id="edT">✏️ بنود الإفادة</h3><p class="mut">عدّل النسب والقيم أو أي بند، أضف بنودًا جديدة أو احذفها، ورتّبها بالأسهم. تظهر التعديلات فورًا في المعاينة، وتُحفظ لهذا المتدرب على الخادم.</p>
+<div class="bar"><label>الاسم (EN) <input id="edNameEn" dir="ltr" maxlength="80"></label><label>الاسم (AR) <input id="edNameAr" dir="rtl" maxlength="80"></label></div>
 <div class="tbl" style="max-height:52vh"><table><tr><th>البند بالعربية</th><th>Item (English)</th><th>القيمة / النسبة</th><th></th></tr><tbody id="edRows"></tbody></table></div>
 <div class="bar" style="margin-top:10px"><button class="btn o" id="edAdd">➕ إضافة بند</button><button class="btn o" id="edDef">↺ البنود الافتراضية (من التقدّم الفعلي)</button></div>
-<div class="bar"><button class="btn g" id="edSave">💾 حفظ</button><button class="btn g" id="edApprove">💾 حفظ واعتماد</button><button class="btn o" id="edX">✕ إغلاق</button><span class="mut" id="edMsg"></span></div></div>
+<div class="bar"><button class="btn g" id="edSave">💾 حفظ</button><button class="btn g" id="edApprove">💾 حفظ واعتماد</button><button class="btn o" id="edReload" hidden>↻ تحديث وإعادة فتح</button><button class="btn o" id="edX">✕ إغلاق</button><span class="mut" id="edMsg"></span></div></div>
 <div class="pvw" id="edPv"></div></div></div>
 <div id="toast"></div>
 <div class="foot">Track Ford GRC · <b>تصميم وبرمجة وإعداد: د. محمد عطية</b> · الشهادات تُتحقق مباشرة من سجل تراكفورد على الخادم</div>
@@ -56,122 +57,238 @@ td input{width:100%;min-width:170px;padding:6px 8px}td .acts{display:flex;gap:5p
   const $ = s => document.querySelector(s), esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const API = () => (window.TF_API_BASE || '').replace(/\/$/, '');
   let PIN = sessionStorage.getItem('tf_trainer_pin') || '', U = [], C = {}, CFG = {}, F = 'pending', Q = '', timer = null, EDIT = {};
+  let AUTH = 0, LOAD = 0, CHANGE = 0, ED = null, PV = null, BULK = false, CONFIG_BUSY = false, CONFIG_UNCERTAIN = false;
+  const BUSY = new Set(), UNCERTAIN = new Set();
+  const clone = value => JSON.parse(JSON.stringify(value));
   const toast = t => { const d = $('#toast'); d.textContent = t; d.classList.add('on'); clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('on'), 3500); };
-  const api = async (q, body) => { const r = await fetch(API() + '/api/trainer?pin=' + encodeURIComponent(PIN) + (q || ''), body ? { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(body) } : {}); const j = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, j }; };
-  const ERR = { bad_name_en: 'الاسم الإنجليزي يجب أن يكون بأحرف إنجليزية', bad_name_ar: 'الاسم العربي يجب أن يكون بأحرف عربية', names_required: 'أدخل الاسمين الإنجليزي والعربي قبل الاعتماد', bad_pin: 'الرقم السري غير صحيح', rate_limited: 'محاولات كثيرة — انتظر قليلًا', cert_locked: 'الشهادة معتمدة ومقفلة — لا يمكن تعديلها بعد الاعتماد (يمكن إلغاؤها فقط)', certificate_write_conflict: 'تغيّرت بيانات هذا الطلب للتو — حدّث الصفحة وأعد المحاولة', cert_revoked: 'هذه الشهادة ملغاة', cert_not_approved: 'الشهادة غير معتمدة بعد', bad_rows: 'بنود الإفادة غير صالحة', invalid_certificate_config: 'بيانات الشهادة في الإعدادات غير صالحة', account_blocked: 'حساب المتدرب موقوف', certificate_account_changed: 'تغيّر حساب المتدرب — حدّث الصفحة' };
+  const ERR = { config_busy: 'انتظر اكتمال حفظ إعدادات الشهادة ثم راجع المعاينة قبل الاعتماد', config_uncertain: 'تعذّر تأكيد إعدادات الشهادة. حدّث البيانات وراجع المعاينة قبل أي حفظ أو اعتماد.', cert_not_issued: 'لا توجد نسخة صادرة لإعادة فتحها', certificate_revision_limit: 'بلغ الطلب الحد الأقصى للنسخ. تواصل مع مسؤول النظام.', bad_name_en: 'الاسم الإنجليزي يجب أن يكون بأحرف إنجليزية', bad_name_ar: 'الاسم العربي يجب أن يكون بأحرف عربية', names_required: 'أدخل الاسمين الإنجليزي والعربي قبل الاعتماد', bad_pin: 'الرقم السري غير صحيح', rate_limited: 'محاولات كثيرة — انتظر قليلًا', cert_locked: 'النسخة الصادرة مقفلة — استخدم إعادة الفتح للتعديل أولًا', certificate_write_conflict: 'تغيّرت بيانات هذا الطلب. لم تُعد محاولة الحفظ. حدّث الطلب وراجع التغييرات قبل المحاولة مجددًا.', cert_revoked: 'هذه الشهادة ملغاة', cert_not_approved: 'الشهادة غير معتمدة بعد', bad_rows: 'بنود الإفادة غير صالحة', invalid_certificate_config: 'بيانات الشهادة في الإعدادات غير صالحة', account_blocked: 'حساب المتدرب موقوف', certificate_account_changed: 'تغيّر حساب المتدرب — حدّث الصفحة', network_error: 'انقطع الاتصال؛ قد يكون الحفظ قد اكتمل. حدّث الطلب للتحقق قبل أي محاولة جديدة.', invalid_response: 'لم يصل تأكيد صالح من الخادم. حدّث الطلب للتحقق قبل المحاولة مجددًا.', refresh_required: 'حدّث الطلب وراجع بياناته قبل المحاولة مجددًا.', request_busy: 'جارٍ تنفيذ طلب لهذا المتدرب بالفعل', stale_session: 'انتهت جلسة الدخول' };
+  const errorText = r => ERR[r.j && r.j.error] || (r.j && r.j.error) || 'تعذّر التنفيذ';
   const REV = id => (C[id] && C[id].revision) || 'absent';
+  function endSession(msg) {
+    AUTH++; LOAD++; CHANGE++; clearInterval(timer); timer = null;
+    PIN = ''; U = []; C = {}; CFG = {}; EDIT = {}; BUSY.clear(); UNCERTAIN.clear(); BULK = false; CONFIG_BUSY = false; CONFIG_UNCERTAIN = false;
+    sessionStorage.removeItem('tf_trainer_pin'); closeEditor(true); closePreview(); login(msg);
+  }
+  const api = async (q, body) => {
+    const auth = AUTH, pin = PIN;
+    try {
+      const r = await fetch(API() + '/api/trainer?pin=' + encodeURIComponent(pin) + (q || ''), body ? { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(body) } : {});
+      const raw = await r.json().catch(() => ({})), j = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+      if (auth !== AUTH) return { ok: false, j: { error: 'stale_session' } };
+      if (r.status === 401) endSession(ERR.bad_pin);
+      return { ok: r.ok, status: r.status, j };
+    } catch (e) { return { ok: false, j: { error: auth === AUTH ? 'network_error' : 'stale_session' } }; }
+  };
   async function decide(body) {
-    let r = await api('', Object.assign({}, body, { expectedRevision: REV(body.id) }));
-    if (!r.ok && r.j && r.j.error === 'certificate_write_conflict') {
-      const f = await api('&view=certs'); if (f.ok) { (f.j.certs || []).forEach(c => C[c.id] = c); }
-      const s = (C[body.id] || {}).status; if (s === 'approved' || s === 'revoked') return { ok: false, j: { error: 'cert_locked' } };
-      r = await api('', Object.assign({}, body, { expectedRevision: REV(body.id) }));
-    }
-    return r;
+    if (!PIN) return { ok: false, j: { error: 'stale_session' } };
+    if (CONFIG_BUSY || CONFIG_UNCERTAIN) return { ok: false, j: { error: CONFIG_BUSY ? 'config_busy' : 'config_uncertain' } };
+    if (BUSY.has(body.id)) return { ok: false, j: { error: 'request_busy' } };
+    if (UNCERTAIN.has(body.id) || !body.expectedRevision) return { ok: false, j: { error: 'refresh_required' } };
+    const auth = AUTH; BUSY.add(body.id); CHANGE++; syncActions();
+    // Never replace the revision captured with the trainer's draft, and never retry a write automatically.
+    let r = await api('', body);
+    if (auth !== AUTH) return { ok: false, j: { error: 'stale_session' } };
+    if (r.ok && (!r.j.cert || r.j.cert.id !== body.id || !r.j.cert.revision)) r = { ok: false, j: { error: 'invalid_response' } };
+    BUSY.delete(body.id); CHANGE++;
+    if (r.ok) {
+      C[body.id] = r.j.cert;
+      if (PV && PV.id === body.id) closePreview();
+    } else if (['certificate_write_conflict', 'certificate_account_changed', 'network_error', 'invalid_response'].includes(r.j.error) || r.status >= 500) UNCERTAIN.add(body.id);
+    syncActions(); return r;
   }
   function login(msg) {
     $('#out').hidden = true;
     $('#main').innerHTML = `<div class="card login"><div style="font-size:44px">🔐</div><h3>دخول المدرب</h3><p class="mut">نفس الرقم السري للوحة المدرب.</p><input id="pin" type="password" inputmode="numeric" placeholder="••••"><p><button class="btn g" id="go">دخول</button></p><p class="mut" id="msg">${esc(msg || '')}</p></div>`;
-    $('#go').onclick = async () => { PIN = $('#pin').value.trim(); $('#msg').textContent = 'جارٍ التحقق…'; const ok = await load(); if (ok) { sessionStorage.setItem('tf_trainer_pin', PIN); start(); } };
-    $('#pin').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
+    const go = $('#go');
+    go.onclick = async () => {
+      if (go.disabled) return; go.disabled = true; AUTH++; PIN = $('#pin').value.trim(); const auth = AUTH;
+      $('#msg').textContent = 'جارٍ التحقق…'; const ok = await load();
+      if (auth !== AUTH) return; go.disabled = false;
+      if (ok) { sessionStorage.setItem('tf_trainer_pin', PIN); start(); }
+    };
+    $('#pin').onkeydown = e => { if (e.key === 'Enter') go.click(); };
   }
   async function load() {
-    try {
-      const [a, b] = await Promise.all([api(''), api('&view=certs')]);
-      if (!a.ok || !b.ok) { const e = (a.j && a.j.error) || (b.j && b.j.error) || 'offline'; if (a.status === 401) { sessionStorage.removeItem('tf_trainer_pin'); login(ERR.bad_pin); } else if ($('#msg')) $('#msg').textContent = 'تعذّر الاتصال: ' + (ERR[e] || e); return false; }
-      U = a.j.users || []; C = {}; (b.j.certs || []).forEach(c => C[c.id] = c); CFG = b.j.config || {}; return true;
-    } catch (e) { if ($('#msg')) $('#msg').textContent = 'تعذّر الاتصال بالخادم'; return false; }
+    const auth = AUTH, request = ++LOAD, change = CHANGE;
+    const [a, b] = await Promise.all([api(''), api('&view=certs')]);
+    if (auth !== AUTH || request !== LOAD || change !== CHANGE) return false;
+    const valid = Array.isArray(a.j.users) && Array.isArray(b.j.certs) && b.j.config && typeof b.j.config === 'object' && !Array.isArray(b.j.config);
+    if (!a.ok || !b.ok || !valid) { const msg = 'تعذّر التحديث: ' + errorText(!a.ok ? a : !b.ok ? b : { j: { error: 'invalid_response' } }); closePreview(); U.forEach(u => UNCERTAIN.add(u.id)); if (ED) staleEditor(msg); syncActions(); if ($('#msg')) $('#msg').textContent = msg; else toast(msg); return false; }
+    const configChanged = JSON.stringify(CFG) !== JSON.stringify(b.j.config || {});
+    U = a.j.users || []; C = {}; (b.j.certs || []).forEach(c => C[c.id] = c); CFG = b.j.config || {}; UNCERTAIN.clear(); CONFIG_UNCERTAIN = false;
+    if (ED && (ED.revision !== REV(ED.u.id) || configChanged)) staleEditor('تغيّرت البيانات على الخادم. احتُفظ بتعديلاتك هنا؛ حدّث وأعد فتح الطلب قبل الحفظ.');
+    if (PV && (PV.revision !== REV(PV.id) || configChanged)) closePreview();
+    return true;
   }
   const status = u => (C[u.id] && C[u.id].status) || 'none';
   const ST = { none: 'لم يطلب', pending: 'بانتظار الموافقة', approved: 'معتمدة', rejected: 'مُعادة للتعديل', revoked: 'ملغاة' };
   const live = u => u.lastSeen && Date.now() - u.lastSeen < 120000;
   const ago = t => { if (!t) return '—'; const s = (Date.now() - t) / 1000; return s < 60 ? 'الآن' : s < 3600 ? Math.round(s / 60) + ' د' : s < 86400 ? Math.round(s / 3600) + ' س' : Math.round(s / 86400) + ' ي'; };
   function render() {
-    const n = k => U.filter(u => status(u) === k).length;
+    const n = k => U.filter(u => status(u) === k).length, eligible = U.filter(u => status(u) === 'pending' && !(C[u.id].previousVersions || []).length).length;
     const rows = U.filter(u => (F === 'all' || status(u) === F || (F === 'closed' && /rejected|revoked/.test(status(u)))) && (!Q || JSON.stringify([u.name, u.phone, u.group, u.org, C[u.id] && C[u.id].nameEn, C[u.id] && C[u.id].no]).toLowerCase().includes(Q.toLowerCase())))
       .sort((a, b) => (status(a) === 'pending' ? 0 : 1) - (status(b) === 'pending' ? 0 : 1) || ((C[b.id] || {}).requestedAt || 0) - ((C[a.id] || {}).requestedAt || 0) || (b.lastSeen || 0) - (a.lastSeen || 0));
     const focus = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f ? [document.activeElement.dataset.id, document.activeElement.dataset.f] : null;
     $('#main').innerHTML = `<div class="kpis"><div class="kpi"><b>${U.length}</b><small>متدرب مسجّل</small></div><div class="kpi"><b>${U.filter(live).length}</b><small>نشط الآن 🟢</small></div><div class="kpi p"><b>${n('pending')}</b><small>طلبات بانتظار موافقتك</small></div><div class="kpi a"><b>${n('approved')}</b><small>شهادات معتمدة</small></div><div class="kpi"><b>${Math.round(U.reduce((a, u) => a + ((u.progress && u.progress.overall) || 0), 0) / Math.max(1, U.length))}%</b><small>متوسط التقدّم</small></div></div>
       <div class="card"><div class="bar">${[['pending', 'بانتظار الموافقة', n('pending')], ['approved', 'المعتمدة', n('approved')], ['none', 'لم يطلبوا', n('none')], ['closed', 'مُعادة/ملغاة', n('rejected') + n('revoked')], ['all', 'الكل', U.length]].map(([k, t, c]) => `<button class="chip ${F === k ? 'on' : ''}" data-f2="${k}">${t} (${c})</button>`).join('')}
         <input id="q" placeholder="🔎 بحث بالاسم أو الجوال أو المجموعة أو رقم الشهادة" value="${esc(Q)}" style="flex:1;min-width:220px">
-        <button class="btn g" id="bulk" ${n('pending') ? '' : 'disabled'}>✅ اعتماد كل الطلبات المعلّقة (${n('pending')})</button><span class="mut" id="upd">تحديث لحظي كل 20 ثانية</span></div>
+        <button class="btn o" id="refresh">↻ تحديث</button><button class="btn g" id="bulk" ${eligible ? '' : 'disabled'}>✅ اعتماد الطلبات الجديدة (${eligible})</button><span class="mut" id="upd">تحديث لحظي كل 20 ثانية</span></div>
       <div class="tbl"><table><tr><th>المتدرب</th><th>التقدّم</th><th>الاسم في الشهادة (EN)</th><th>الاسم في الإفادة (AR)</th><th>الحالة</th><th>رقم الشهادة</th><th>إجراءات</th></tr>
       ${rows.map(u => { const c = C[u.id] || {}, s = status(u), e = EDIT[u.id] || {}, p = u.progress || {}, ex = (p.scores && p.scores.examBest) || 0;
         return `<tr><td><span class="dot ${live(u) ? 'on' : ''}"></span><b>${esc(u.name)}</b><div class="mut">${esc(u.group || '')}${u.org ? ' · ' + esc(u.org) : ''} · ${esc(u.phone || '')} · آخر ظهور ${ago(u.lastSeen)}</div></td>
           <td><b>${p.overall || 0}%</b> <span class="mut">· اختبار ${ex ? ex + '%' : '—'}</span><div class="pg"><i style="width:${p.overall || 0}%"></i></div></td>
           <td><input dir="ltr" ${/approved|revoked/.test(s) ? 'readonly' : ''} data-id="${u.id}" data-f="nameEn" value="${esc(e.nameEn != null ? e.nameEn : (c.nameEn || ''))}" placeholder="English name"></td>
           <td><input dir="rtl" ${/approved|revoked/.test(s) ? 'readonly' : ''} data-id="${u.id}" data-f="nameAr" value="${esc(e.nameAr != null ? e.nameAr : (c.nameAr || (/[؀-ۿ]/.test(u.name || '') ? u.name : '')))}" placeholder="الاسم بالعربية"></td>
-          <td><span class="st ${s}">${ST[s]}</span>${c.requestedAt ? `<div class="mut">طلب ${ago(c.requestedAt)}</div>` : ''}${c.note ? `<div class="mut">📝 ${esc(c.note)}</div>` : ''}</td>
-          <td dir="ltr" style="text-align:right">${c.no ? `<b>${esc(c.no)}</b><div class="mut">${esc(c.verify || '')}</div>` : '—'}</td>
-          <td><div class="acts">${s === 'approved' ? `<span class="mut">🔒 معتمدة ومقفلة</span><button class="btn r" data-a="revoke" data-id="${u.id}">⛔ إلغاء</button>` : s === 'revoked' ? '' : `<button class="btn g" data-a="approve" data-id="${u.id}">✅ اعتماد</button>${s === 'pending' ? `<button class="btn r" data-a="reject" data-id="${u.id}">↩️ إعادة للتعديل</button>` : ''}<button class="btn o" data-a="ed" data-id="${u.id}">✏️ بنود الإفادة${c.rows ? ' ✓' : ''}</button>`}<button class="btn o" data-a="pv" data-id="${u.id}">👁️ معاينة</button></div></td></tr>`; }).join('') || '<tr><td colspan="7" class="mut">لا يوجد متدربون في هذا التصنيف.</td></tr>'}</table></div></div>
+          <td><span class="st ${s}">${ST[s]}</span>${c.requestedAt ? `<div class="mut">طلب ${ago(c.requestedAt)}</div>` : ''}${c.note ? `<div class="mut">📝 ${esc(c.note)}</div>` : ''}${e.revision && e.revision !== REV(u.id) ? '<div class="mut">⚠️ تعديل الاسم أقدم من بيانات الخادم</div>' : ''}</td>
+          <td dir="ltr" style="text-align:right">${c.no ? `<b>${esc(c.no)}</b><div class="mut">${esc(c.verify || '')}</div>` : '—'}${(c.previousVersions || []).length ? `<div class="mut">النسخ السابقة: ${(c.previousVersions || []).map(v => esc(v.no) + ' (' + esc(ST[v.status] || v.status || 'ملغاة') + ')').join('، ')}</div>` : ''}</td>
+          <td><div class="acts">${s === 'approved' || s === 'revoked' ? `<button class="btn o" data-a="reopen" data-id="${u.id}">✏️ إعادة فتح للتعديل</button>${s === 'approved' ? `<button class="btn r" data-a="revoke" data-id="${u.id}">⛔ إلغاء</button>` : ''}` : `<button class="btn g" data-a="approve" data-id="${u.id}">${(c.previousVersions || []).length ? '👁️ مراجعة واعتماد نسخة جديدة' : '✅ اعتماد'}</button>${s === 'pending' ? `<button class="btn r" data-a="reject" data-id="${u.id}">↩️ إعادة للتعديل</button>` : ''}<button class="btn o" data-a="ed" data-id="${u.id}">✏️ بنود الإفادة${c.rows ? ' ✓' : ''}</button>`}<button class="btn o" data-a="pv" data-id="${u.id}">👁️ معاينة</button>${e.revision ? `<button class="btn o" data-a="reset" data-id="${u.id}">↺ تجاهل تعديل الاسم</button>` : ''}</div></td></tr>`; }).join('') || '<tr><td colspan="7" class="mut">لا يوجد متدربون في هذا التصنيف.</td></tr>'}</table></div></div>
       <details class="card"><summary><b>⚙️ بيانات الشهادة والإفادة (تُطبَّق على كل الوثائق)</b></summary><div class="set" style="margin-top:12px">${[['program', 'اسم البرنامج (EN)'], ['programAr', 'اسم البرنامج (AR)'], ['kind', 'نوع البرنامج (EN)'], ['kindAr', 'نوع البرنامج (AR)'], ['approvalNo', 'رقم اعتماد المؤسسة'], ['hours', 'الساعات'], ['dates', 'الفترة (EN)'], ['datesAr', 'الفترة (AR)'], ['signName', 'الموقّع (EN)'], ['signTitle', 'المنصب (EN)'], ['signNameAr', 'الموقّع (AR)'], ['signTitleAr', 'المنصب (AR)'], ['trainer', 'المدرب (EN)'], ['trainerAr', 'المدرب (AR)'], ['prefix', 'بادئة رقم الشهادة']].map(([k, t]) => `<label>${t}<input data-cfg="${k}" value="${esc(CFG[k] || '')}"></label>`).join('')}</div><div class="bar" style="margin-top:10px"><button class="btn g" id="saveCfg">💾 حفظ البيانات</button><span class="mut">تُستخدم في الوثائق الجديدة وفي صفحة التحقق. الشهادات الصادرة تبقى بأرقامها.</span></div></details>`;
     $$('[data-f2]').forEach(b => b.onclick = () => { F = b.dataset.f2; render(); });
-    const q = $('#q'); q.oninput = () => { Q = q.value; clearTimeout(q._t); q._t = setTimeout(() => { render(); const z = $('#q'); z.focus(); z.setSelectionRange(Q.length, Q.length); }, 300); };
-    $$('input[data-f]').forEach(i => i.oninput = () => { (EDIT[i.dataset.id] = EDIT[i.dataset.id] || {})[i.dataset.f] = i.value; });
+    const q = $('#q'), auth = AUTH; q.oninput = () => { Q = q.value; clearTimeout(q._t); q._t = setTimeout(() => { if (auth !== AUTH || !PIN) return; render(); const z = $('#q'); z.focus(); z.setSelectionRange(Q.length, Q.length); }, 300); };
+    $$('input[data-f]').forEach(i => i.oninput = () => { const id = i.dataset.id; if (!EDIT[id]) EDIT[id] = Object.assign({ revision: REV(id) }, names(id)); EDIT[id][i.dataset.f] = i.value; });
     $$('[data-a]').forEach(b => b.onclick = () => act(b.dataset.a, b.dataset.id, b));
-    $('#bulk').onclick = bulk; $('#saveCfg').onclick = saveCfg;
+    $('#bulk').onclick = bulk; $('#saveCfg').onclick = saveCfg; $('#refresh').onclick = async () => { if (BUSY.size || CONFIG_BUSY) return; if (await load()) render(); }; syncActions();
     if (focus) { const el = document.querySelector(`input[data-id="${focus[0]}"][data-f="${focus[1]}"]`); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
   }
   const $$ = s => [...document.querySelectorAll(s)];
-  const names = id => { const tr = document.querySelector(`input[data-id="${id}"][data-f="nameEn"]`), ta = document.querySelector(`input[data-id="${id}"][data-f="nameAr"]`); return { nameEn: tr ? tr.value.trim() : '', nameAr: ta ? ta.value.trim() : '' }; };
-  async function act(a, id, b) {
-    const u = U.find(x => x.id === id), nm = names(id);
-    if (a === 'pv') return pv(u, nm);
-    if (a === 'ed') return editAtt(u);
+  const names = id => { const c = C[id] || {}, u = U.find(x => x.id === id) || {}, e = EDIT[id] || {}; return { nameEn: String(e.nameEn != null ? e.nameEn : c.nameEn || '').trim(), nameAr: String(e.nameAr != null ? e.nameAr : c.nameAr || (/[؀-ۿ]/.test(u.name || '') ? u.name : '')).trim() }; };
+  const nameRevision = id => EDIT[id] ? EDIT[id].revision : REV(id);
+  function syncActions() {
+    $$('[data-a]').forEach(b => b.disabled = CONFIG_BUSY || CONFIG_UNCERTAIN || BUSY.has(b.dataset.id) || (UNCERTAIN.has(b.dataset.id) && b.dataset.a !== 'reset'));
+    $$('input[data-f]').forEach(i => i.disabled = CONFIG_BUSY || CONFIG_UNCERTAIN || BUSY.has(i.dataset.id));
+    if ($('#bulk')) $('#bulk').disabled = CONFIG_BUSY || CONFIG_UNCERTAIN || BULK || BUSY.size > 0 || !U.some(u => status(u) === 'pending' && !(C[u.id].previousVersions || []).length && !UNCERTAIN.has(u.id));
+    if ($('#saveCfg')) $('#saveCfg').disabled = CONFIG_BUSY || CONFIG_UNCERTAIN || BUSY.size > 0 || BULK;
+    if ($('#refresh')) $('#refresh').disabled = BUSY.size > 0 || CONFIG_BUSY;
+    if (ED) edControls();
+  }
+  async function act(a, id) {
+    const u = U.find(x => x.id === id); if (!u || BUSY.has(id) || !PIN) return;
+    if (a === 'reset') { if (confirm('تجاهل تعديلات الاسم غير المحفوظة واستخدام بيانات الخادم؟')) { delete EDIT[id]; render(); } return; }
+    if (CONFIG_BUSY || CONFIG_UNCERTAIN) return toast('⚠️ ' + ERR[CONFIG_BUSY ? 'config_busy' : 'config_uncertain']);
+    if (UNCERTAIN.has(id)) return toast('⚠️ ' + ERR.refresh_required);
+    if (a === 'pv') return pv(u, names(id));
+    if (a === 'ed' || (a === 'approve' && ((C[id] || {}).previousVersions || []).length)) return editAtt(u);
+    const revision = a === 'approve' ? nameRevision(id) : REV(id), nm = names(id), auth = AUTH;
     let note = ''; if (a === 'reject') { note = prompt('سبب الإعادة (يظهر للمتدرب):', 'يرجى تصحيح كتابة الاسم'); if (note === null) return; }
     if (a === 'revoke' && !confirm('إلغاء شهادة ' + u.name + '؟ ستظهر صفحة التحقق أنها ملغاة.')) return;
-    b.disabled = true;
-    const body = { action: 'cert_decide', id, decision: a, expectedRevision: REV(id) }; if (a === 'reject' || a === 'revoke') body.note = note || ''; if (a === 'approve') Object.assign(body, nm);
-    const r = await decide(body); b.disabled = false;
-    if (!r.ok) return toast('⚠️ ' + (ERR[r.j.error] || r.j.error || 'تعذّر التنفيذ'));
-    C[id] = r.j.cert; delete EDIT[id]; toast({ approve: '✅ اعتُمدت شهادة ' + u.name + ' — رقم ' + r.j.cert.no, reject: '↩️ أُعيد الطلب للمتدرب', revoke: '⛔ أُلغيت الشهادة' }[a]); render();
+    if (a === 'reopen' && !confirm('إعادة فتح شهادة ' + u.name + ' للتعديل؟ ستُلغى صلاحية النسخة الصادرة السابقة ورمز التحقق الخاص بها نهائيًا. سيصبح الطلب بانتظار الموافقة، ولن تصدر نسخة جديدة إلا بعد اعتماد مستقل منك.')) return;
+    const body = { action: 'cert_decide', id, decision: a, expectedRevision: revision };
+    if (a === 'reject' || a === 'revoke') body.note = note || ''; if (a === 'approve') Object.assign(body, nm);
+    const r = await decide(body); if (auth !== AUTH) return;
+    if (!r.ok) return toast('⚠️ ' + errorText(r));
+    delete EDIT[id]; if (a === 'reopen') F = 'pending'; toast({ approve: '✅ اعتُمدت شهادة ' + u.name + ' — رقم ' + r.j.cert.no, reject: '↩️ أُعيد الطلب للمتدرب', revoke: '⛔ أُلغيت الشهادة', reopen: 'أُعيد فتح الطلب. النسخة السابقة ملغاة؛ راجع التعديلات ثم اعتمد نسخة جديدة.' }[a]); render();
+    if (a === 'reopen') editAtt(u);
   }
   async function bulk() {
-    const ps = U.filter(u => status(u) === 'pending'); if (!confirm('اعتماد ' + ps.length + ' طلبًا بالأسماء المكتوبة؟')) return;
-    let ok = 0; for (const u of ps) { const r = await decide(Object.assign({ action: 'cert_decide', id: u.id, decision: 'approve' }, names(u.id))); if (r.ok) { C[u.id] = r.j.cert; ok++; } }
-    toast('✅ اعتُمد ' + ok + ' من ' + ps.length); render();
+    if (CONFIG_BUSY || CONFIG_UNCERTAIN || BULK || BUSY.size || !PIN) return;
+    const drafts = U.filter(u => status(u) === 'pending' && !(C[u.id].previousVersions || []).length && !UNCERTAIN.has(u.id)).map(u => ({ id: u.id, expectedRevision: nameRevision(u.id), ...names(u.id) }));
+    if (!drafts.length || !confirm('اعتماد ' + drafts.length + ' طلبًا بالأسماء المكتوبة؟')) return;
+    const auth = AUTH; BULK = true; syncActions(); let ok = 0, failed = 0;
+    for (const draft of drafts) {
+      if (auth !== AUTH) return;
+      const r = await decide(Object.assign({ action: 'cert_decide', decision: 'approve' }, draft));
+      if (auth !== AUTH) return;
+      if (r.ok) { delete EDIT[draft.id]; ok++; } else { failed++; if (r.j.error === 'network_error') break; }
+    }
+    BULK = false; toast('اعتُمد ' + ok + ' من ' + drafts.length + (failed ? '؛ لم تُعتمد بعض الطلبات. حدّث وراجعها قبل إعادة المحاولة.' : '')); render();
   }
   async function saveCfg() { const cert = Object.assign({}, CFG); $$('[data-cfg]').forEach(i => cert[i.dataset.cfg] = i.value.trim()); cert.prefix = (cert.prefix || '').toUpperCase();
-    if (!/^\d{1,4}(\.\d{1,2})?$/.test(cert.hours || '') || +cert.hours <= 0) return toast('⚠️ الساعات يجب أن تكون رقمًا فقط (مثل 30)'); if (!/^[A-Z0-9][A-Z0-9-]{1,19}$/.test(cert.prefix)) return toast('⚠️ بادئة الرقم: أحرف إنجليزية كبيرة وأرقام وشرطة فقط (مثل TF-2026)'); if (['program', 'programAr', 'kind', 'kindAr', 'dates', 'datesAr'].some(k => !cert[k])) return toast('⚠️ أكمل اسم البرنامج ونوعه والفترة باللغتين'); if (cert.site && !/^https:\/\//i.test(cert.site)) return toast('⚠️ رابط الموقع يجب أن يبدأ بـ https://'); const r = await api('', { config: { cert } }); if (r.ok) { CFG = cert; toast('💾 حُفظت بيانات الشهادة'); } else toast('⚠️ تعذّر الحفظ'); }
+    if (!/^\d{1,4}(\.\d{1,2})?$/.test(cert.hours || '') || +cert.hours <= 0) return toast('⚠️ الساعات يجب أن تكون رقمًا فقط (مثل 30)'); if (!/^[A-Z0-9][A-Z0-9-]{1,19}$/.test(cert.prefix)) return toast('⚠️ بادئة الرقم: أحرف إنجليزية كبيرة وأرقام وشرطة فقط (مثل TF-2026)'); if (['program', 'programAr', 'kind', 'kindAr', 'dates', 'datesAr'].some(k => !cert[k])) return toast('⚠️ أكمل اسم البرنامج ونوعه والفترة باللغتين'); if (cert.site && !/^https:\/\//i.test(cert.site)) return toast('⚠️ رابط الموقع يجب أن يبدأ بـ https://'); if (CONFIG_BUSY || CONFIG_UNCERTAIN || BUSY.size || BULK || !PIN) return; const auth = AUTH; CONFIG_BUSY = true; CHANGE++; closePreview(); if (ED) staleEditor('جارٍ تغيير إعدادات الشهادة. حدّث وأعد فتح الطلب بعد اكتمال الحفظ.'); syncActions();
+    let r = await api('', { config: { cert } }); if (auth !== AUTH) return; CONFIG_BUSY = false; CHANGE++;
+    if (r.ok && (!r.j.config || !r.j.config.cert || typeof r.j.config.cert !== 'object' || Array.isArray(r.j.config.cert))) r = { ok: false, j: { error: 'invalid_response' } };
+    if (!r.ok && (r.status >= 500 || ['network_error', 'invalid_response'].includes(r.j.error))) { CONFIG_UNCERTAIN = true; U.forEach(u => UNCERTAIN.add(u.id)); closePreview(); if (ED) staleEditor(ERR.config_uncertain); }
+    if (r.ok) { CFG = cert; closePreview(); if (ED) staleEditor('تغيّرت إعدادات الشهادة. حدّث وأعد فتح الطلب لمعاينتها قبل الاعتماد.'); toast('💾 حُفظت بيانات الشهادة'); } else toast('⚠️ ' + errorText(r)); syncActions(); }
+  function closePreview() { PV = null; $('#pv').classList.remove('on'); $('#pv1').replaceChildren(); $('#pv2').replaceChildren(); $('#pvC').disabled = $('#pvA').disabled = true; $('#pvC').onclick = $('#pvA').onclick = null; }
   async function pv(u, nm) {
-    const c = C[u.id] || {}, ok = c.status === 'approved';
-    const d = { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG, (ok && c.config) || {}), rows: c.rows, progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } };
-    $('#pvT').textContent = (ok ? '✅ ' : '👁️ معاينة (غير صادرة) — ') + (d.nameEn || u.name) + (ok ? ' · ' + c.no : '');
-    $('#pv1').replaceChildren(await window.TFCert.preview('cert', d)); $('#pv2').replaceChildren(await window.TFCert.preview('attest', d)); $('#pv').classList.add('on');
-    $('#pvC').onclick = () => window.TFCert.pdf('cert', d); $('#pvA').onclick = () => window.TFCert.pdf('attest', d);
+    if (!PIN || CONFIG_BUSY || CONFIG_UNCERTAIN || UNCERTAIN.has(u.id)) return; closePreview();
+    const c = C[u.id] || {}, ok = c.status === 'approved', d = docOf(u, nm, c.rows), p = { id: u.id, revision: REV(u.id), auth: AUTH }; PV = p;
+    $('#pvT').textContent = (ok ? '✅ ' : '👁️ معاينة (غير صادرة) — ') + (d.nameEn || u.name) + (ok ? ' · ' + c.no : ''); $('#pv').classList.add('on');
+    try {
+      const [cert, attest] = await Promise.all([window.TFCert.preview('cert', d), window.TFCert.preview('attest', d)]);
+      if (PV !== p || p.auth !== AUTH || p.revision !== REV(p.id)) return;
+      $('#pv1').replaceChildren(cert); $('#pv2').replaceChildren(attest); $('#pvC').disabled = $('#pvA').disabled = false;
+      const download = async kind => { if (PV !== p || p.auth !== AUTH || p.revision !== REV(p.id)) return; try { await window.TFCert.pdf(kind, d); } catch (e) { if (PV === p) toast('⚠️ تعذّر إعداد ملف PDF'); } };
+      $('#pvC').onclick = () => download('cert'); $('#pvA').onclick = () => download('attest');
+    } catch (e) { if (PV === p) { closePreview(); toast('⚠️ تعذّرت المعاينة. أعد المحاولة.'); } }
   }
   /* ───── محرر بنود الإفادة ───── */
-  let ED = null;
-  const docOf = (u, nm, rows) => { const c = C[u.id] || {}, ok = c.status === 'approved'; nm = nm || names(u.id);
-    return { nameEn: nm.nameEn || c.nameEn, nameAr: nm.nameAr || c.nameAr, no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: c.issuedAt, cfg: Object.assign({}, window.TFCert.DEF, CFG, (ok && c.config) || {}), rows,
-      progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } }; };
-  const defRows = u => window.TFCert.defaultRows(docOf(u, null, null)).map(r => ({ ar: r[0], en: r[1], v: String(r[2]) }));
-  function edDraw() {
-    $('#edRows').innerHTML = ED.rows.map((r, i) => `<tr><td><input dir="rtl" data-i="${i}" data-k="ar" value="${esc(r.ar)}"></td><td><input dir="ltr" data-i="${i}" data-k="en" value="${esc(r.en)}"></td><td><input dir="auto" data-i="${i}" data-k="v" value="${esc(r.v)}" style="font-weight:700"></td><td style="white-space:nowrap"><button class="mv" data-m="up" data-i="${i}" title="أعلى">▲</button><button class="mv" data-m="dn" data-i="${i}" title="أسفل">▼</button><button class="mv" data-m="del" data-i="${i}" title="حذف" style="color:var(--warn)">✕</button></td></tr>`).join('');
-    $$('#edRows input').forEach(x => x.oninput = () => { ED.rows[+x.dataset.i][x.dataset.k] = x.value; clearTimeout(ED.t); ED.t = setTimeout(edPrev, 300); });
-    $$('#edRows .mv').forEach(b => b.onclick = () => { const i = +b.dataset.i, R = ED.rows; if (b.dataset.m === 'del') R.splice(i, 1); else { const j = b.dataset.m === 'up' ? i - 1 : i + 1; if (j < 0 || j >= R.length) return; [R[i], R[j]] = [R[j], R[i]]; } edDraw(); edPrev(); });
-    $('#edAdd').disabled = ED.rows.length >= 12;
+  const docOf = (u, nm, rows) => { const c = C[u.id] || {}, ok = c.status === 'approved'; nm = ok ? c : (nm || names(u.id));
+    return clone({ nameEn: nm.nameEn || '', nameAr: nm.nameAr || '', no: ok ? c.no : '', verify: ok ? c.verify : '', issuedAt: ok ? c.issuedAt : undefined, cfg: Object.assign({}, window.TFCert.DEF, CFG, (ok && c.config) || {}), rows,
+      progress: ok && c.progress ? c.progress : { overall: (u.progress && u.progress.overall) || 0, examBest: (u.progress && u.progress.scores && u.progress.scores.examBest) || 0, timeSec: (u.progress && u.progress.timeSec) || 0 } }); };
+  const defRows = doc => window.TFCert.defaultRows(doc).map(r => ({ ar: r[0], en: r[1], v: String(r[2]) }));
+  function edControls() {
+    if (!ED) return;
+    const busy = CONFIG_BUSY || ED.saving || ED.reloading || BUSY.has(ED.u.id);
+    $$('#edRows input, #edRows .mv, #edNameEn, #edNameAr, #edDef').forEach(el => el.disabled = busy);
+    $('#edAdd').disabled = busy || ED.rows.length >= 12;
+    $('#edSave').disabled = busy || CONFIG_UNCERTAIN || ED.stale; $('#edApprove').disabled = busy || CONFIG_UNCERTAIN || ED.stale || !ED.previewReady;
+    $('#edReload').hidden = !ED.stale; $('#edReload').disabled = busy;
   }
-  async function edPrev() { $('#edPv').replaceChildren(await window.TFCert.preview('attest', docOf(ED.u, null, ED.rows.filter(r => r.ar || r.en || r.v)))); }
+  function staleEditor(message) { if (!ED) return; ED.stale = true; ED.previewReady = false; ED.preview++; clearTimeout(ED.t); $('#edPv').replaceChildren(); $('#edMsg').textContent = '⚠️ ' + message; edControls(); }
+  function edChanged(delay = 0) {
+    const ed = ED; if (!ed) return; clearTimeout(ed.t); ed.preview++; ed.previewReady = false; $('#edPv').replaceChildren(); edControls();
+    if (!ed.stale) ed.t = setTimeout(() => edPrev(ed), delay);
+  }
+  function edDraw() {
+    const ed = ED;
+    $('#edRows').innerHTML = ed.rows.map((r, i) => `<tr><td><input dir="rtl" maxlength="90" data-i="${i}" data-k="ar" value="${esc(r.ar)}"></td><td><input dir="ltr" maxlength="90" data-i="${i}" data-k="en" value="${esc(r.en)}"></td><td><input dir="auto" maxlength="90" data-i="${i}" data-k="v" value="${esc(r.v)}" style="font-weight:700"></td><td style="white-space:nowrap"><button class="mv" data-m="up" data-i="${i}" title="أعلى">▲</button><button class="mv" data-m="dn" data-i="${i}" title="أسفل">▼</button><button class="mv" data-m="del" data-i="${i}" title="حذف" style="color:var(--warn)">✕</button></td></tr>`).join('');
+    $$('#edRows input').forEach(x => x.oninput = () => { if (ED !== ed || ed.saving) return; ed.rows[+x.dataset.i][x.dataset.k] = x.value; edChanged(300); });
+    $$('#edRows .mv').forEach(b => b.onclick = () => { if (ED !== ed || ed.saving) return; const i = +b.dataset.i, R = ed.rows; if (b.dataset.m === 'del') R.splice(i, 1); else { const j = b.dataset.m === 'up' ? i - 1 : i + 1; if (j < 0 || j >= R.length) return; [R[i], R[j]] = [R[j], R[i]]; } edDraw(); edChanged(); });
+    edControls();
+  }
+  async function edPrev(ed) {
+    if (!ed || ED !== ed || ed.stale) return; const preview = ed.preview;
+    const d = Object.assign(clone(ed.doc), ed.names, { rows: ed.rows.filter(r => r.ar || r.en || r.v).map(r => Object.assign({}, r)) });
+    try {
+      const canvas = await window.TFCert.preview('attest', d);
+      if (ED !== ed || ed.auth !== AUTH || ed.preview !== preview || ed.stale) return;
+      $('#edPv').replaceChildren(canvas); ed.previewReady = true; edControls();
+    } catch (e) { if (ED === ed && ed.preview === preview) { $('#edMsg').textContent = '⚠️ تعذّرت المعاينة. أغلق وأعد فتح المحرر للمحاولة مجددًا.'; edControls(); } }
+  }
+  function closeEditor(force = false) {
+    if (ED && ED.saving && !force && !confirm('الحفظ قيد التنفيذ وقد يكتمل حتى بعد الإغلاق. إغلاق المحرر؟')) return false;
+    if (ED) { clearTimeout(ED.t); ED.preview++; } ED = null; $('#ed').classList.remove('on'); $('#edPv').replaceChildren(); return true;
+  }
   function editAtt(u) {
-    const c = C[u.id] || {}; ED = { u, rows: (c.rows && c.rows.length ? c.rows : defRows(u)).map(r => Object.assign({}, r)) };
-    $('#edT').textContent = '✏️ بنود الإفادة — ' + u.name + (c.status === 'approved' ? ' · ' + c.no : ''); $('#edMsg').textContent = '';
-    edDraw(); edPrev(); $('#ed').classList.add('on');
+    if (!PIN || CONFIG_BUSY || CONFIG_UNCERTAIN || BUSY.has(u.id)) return;
+    const c = C[u.id] || {}; if (c.status === 'approved' || c.status === 'revoked') return toast('⚠️ ' + ERR.cert_locked);
+    if (!closeEditor()) return; closePreview();
+    const nm = names(u.id), doc = docOf(u, nm, c.rows);
+    ED = { u: clone(u), names: nm, doc, revision: nameRevision(u.id), auth: AUTH, rows: clone(c.rows && c.rows.length ? c.rows : defRows(doc)), preview: 0, previewReady: false, saving: false, stale: false };
+    $('#edT').textContent = '✏️ بنود الإفادة — ' + u.name; $('#edMsg').textContent = (c.previousVersions || []).length ? 'النسخة السابقة ملغاة. لن تصدر نسخة جديدة إلا عند الضغط على حفظ واعتماد.' : '';
+    $('#edNameEn').value = nm.nameEn; $('#edNameAr').value = nm.nameAr; $('#ed').classList.add('on'); edDraw();
+    if (ED.revision !== REV(u.id) || UNCERTAIN.has(u.id)) staleEditor(ERR.refresh_required); else edChanged();
   }
   async function edSave(approve) {
-    const u = ED.u, rows = ED.rows.map(r => ({ ar: r.ar.trim(), en: r.en.trim(), v: r.v.trim() })).filter(r => r.ar || r.en || r.v);
-    const body = Object.assign({ action: 'cert_decide', id: u.id, decision: approve ? 'approve' : 'edit', rows, expectedRevision: REV(u.id) }, approve ? names(u.id) : {});
-    $('#edMsg').textContent = 'جارٍ الحفظ…'; const r = await decide(body);
-    if (!r.ok) { $('#edMsg').textContent = '⚠️ ' + (ERR[r.j.error] || r.j.error || 'تعذّر الحفظ'); return; }
-    C[u.id] = r.j.cert; toast(approve ? '✅ حُفظت البنود واعتُمدت إفادة ' + u.name + ' — ' + r.j.cert.no : '💾 حُفظت بنود إفادة ' + u.name); $('#ed').classList.remove('on'); render();
+    const ed = ED; if (!ed || CONFIG_BUSY || CONFIG_UNCERTAIN || ed.saving || ed.reloading || ed.stale || (approve && !ed.previewReady) || ed.auth !== AUTH) return;
+    if (approve && !confirm('اعتماد وإصدار شهادة ' + ed.u.name + ' بالأسماء والبنود الظاهرة في المعاينة؟')) return;
+    const rows = ed.rows.map(r => ({ ar: r.ar.trim(), en: r.en.trim(), v: r.v.trim() })).filter(r => r.ar || r.en || r.v);
+    const body = Object.assign({ action: 'cert_decide', id: ed.u.id, decision: approve ? 'approve' : 'edit', rows, expectedRevision: ed.revision });
+    ['nameEn', 'nameAr'].forEach(key => { const value = ed.names[key].trim(); if (approve || value || ed.doc[key]) body[key] = value; });
+    ed.saving = true; edControls(); $('#edMsg').textContent = 'جارٍ الحفظ…'; const r = await decide(body);
+    if (ed.auth !== AUTH) return; ed.saving = false;
+    if (!r.ok) {
+      if (ED === ed) { if (UNCERTAIN.has(ed.u.id) || r.j.error === 'cert_locked') staleEditor(errorText(r)); else { $('#edMsg').textContent = '⚠️ ' + errorText(r); edControls(); } }
+      else toast('⚠️ ' + errorText(r)); return;
+    }
+    delete EDIT[ed.u.id]; if (ED === ed) closeEditor(true);
+    toast(approve ? '✅ حُفظت البنود واعتُمدت إفادة ' + ed.u.name + ' — ' + r.j.cert.no : '💾 حُفظت بنود إفادة ' + ed.u.name + '؛ لم تُعتمد بعد'); render();
   }
-  $('#edAdd').onclick = () => { ED.rows.push({ ar: '', en: '', v: '' }); edDraw(); const i = $$('#edRows input[data-k="ar"]').pop(); if (i) i.focus(); };
-  $('#edDef').onclick = () => { if (!confirm('استبدال البنود الحالية بالبنود الافتراضية المحسوبة من تقدّم المتدرب؟')) return; ED.rows = defRows(ED.u); edDraw(); edPrev(); };
-  $('#edSave').onclick = () => edSave(false); $('#edApprove').onclick = () => edSave(true); $('#edX').onclick = () => $('#ed').classList.remove('on');
-  $('#pvX').onclick = () => $('#pv').classList.remove('on');
-  $('#out').onclick = () => { sessionStorage.removeItem('tf_trainer_pin'); PIN = ''; clearInterval(timer); login(); };
-  function start() { $('#out').hidden = false; render(); clearInterval(timer); timer = setInterval(async () => { if (document.hidden) return; if (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f) return; if (await load()) render(); }, 20000); }
-  (async () => { if (PIN && await load()) start(); else login(); })();
+  $('#edAdd').onclick = () => { if (!ED || ED.saving || ED.rows.length >= 12) return; ED.rows.push({ ar: '', en: '', v: '' }); edDraw(); edChanged(); const i = $$('#edRows input[data-k="ar"]').pop(); if (i) i.focus(); };
+  $('#edDef').onclick = () => { if (!ED || ED.saving || !confirm('استبدال البنود الحالية بالبنود الافتراضية المحسوبة من تقدّم المتدرب؟')) return; ED.rows = defRows(ED.doc); edDraw(); edChanged(); };
+  [['#edNameEn', 'nameEn'], ['#edNameAr', 'nameAr']].forEach(([selector, key]) => $(selector).oninput = () => { if (!ED || ED.saving) return; ED.names[key] = $(selector).value; edChanged(300); });
+  $('#edReload').onclick = async () => {
+    const ed = ED; if (!ed || ed.saving || ed.reloading || !confirm('تجاهل التعديلات غير المحفوظة وجلب آخر نسخة من الخادم؟')) return;
+    ed.reloading = true; edControls(); const ok = await load(); if (ED !== ed || ed.auth !== AUTH) return; ed.reloading = false;
+    if (!ok) { $('#edMsg').textContent = '⚠️ تعذّر التحديث؛ احتُفظ بتعديلاتك. أعد المحاولة.'; edControls(); return; }
+    const u = U.find(x => x.id === ed.u.id); if (!u) { closeEditor(true); render(); return; }
+    delete EDIT[u.id]; closeEditor(true); render(); editAtt(u);
+  };
+  $('#edSave').onclick = () => edSave(false); $('#edApprove').onclick = () => edSave(true); $('#edX').onclick = () => closeEditor();
+  $('#pvX').onclick = closePreview;
+  $('#out').onclick = () => endSession();
+  function start() { $('#out').hidden = false; render(); clearInterval(timer); timer = setInterval(async () => { if (document.hidden || BUSY.size || CONFIG_BUSY || BULK) return; if (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f) return; if (await load()) render(); }, 20000); }
+  (async () => { if (!PIN) login(); else if (await load()) start(); else if (PIN) login('تعذّر الاتصال بالخادم. أعد تسجيل الدخول للمحاولة.'); })();
 })();
 </script>
 </body>
